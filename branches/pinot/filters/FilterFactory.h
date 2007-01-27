@@ -51,8 +51,12 @@ namespace Dijon
 
     protected:
 	static std::set<std::string> m_externalTypes;
+	static std::map<std::string, std::string> m_types;
+	static std::map<std::string, void *> m_handles;
 
 	FilterFactory();
+
+	static Filter *getLibraryFilter(const std::string &mime_type);
 
     private:
 	FilterFactory(const FilterFactory &other);

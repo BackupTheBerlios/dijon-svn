@@ -39,7 +39,7 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	FilterFactory::loadFilters("/usr/lib64/pinot/filters", "/home/fabrice/Projects/MetaSE/pinot/external-filters.xml");
+	FilterFactory::loadFilters("/usr/lib64/pinot/filters", "/home/fabrice/Projects/MetaSE/pinot/Tokenize/filters/external-filters.xml");
 	string mimeType;
 	Filter *pFilter = NULL;
 

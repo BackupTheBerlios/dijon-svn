@@ -229,7 +229,7 @@ void ExternalFilter::initialize(const std::string &config_file, set<std::string>
 
 	types.clear();
 
-	// Initialize the library and check potential ABI mismatches
+	// Initialize the library and check for potential ABI mismatches
 	LIBXML_TEST_VERSION
 
 	// Parse the file and get the document

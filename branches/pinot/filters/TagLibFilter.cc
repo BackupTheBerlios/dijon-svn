@@ -26,6 +26,39 @@
 using std::string;
 using namespace Dijon;
 
+#ifdef _DYNAMIC_DIJON_FILTERS
+bool get_filter_types(std::set<std::string> &mime_types)
+{
+	mime_types.clear();
+	mime_types.insert("audio/mpeg");
+	mime_types.insert("audio/x-mp3");
+	mime_types.insert("application/ogg");
+	mime_types.insert("audio/x-flac+ogg");
+	mime_types.insert("audio/x-flac");
+
+	return true;
+}
+
+bool check_filter_data_input(int data_input)
+{
+	Filter::DataInput input = (Filter::DataInput)data_input;
+
+	if ((input == Filter::DOCUMENT_DATA) ||
+		(input == Filter::DOCUMENT_STRING) ||
+		(input == Filter::DOCUMENT_FILE_NAME))
+	{
+		return true;
+	}
+
+	return false;
+}
+
+Filter *get_filter(const std::string &mime_type)
+{
+	return new TagLibFilter(mime_type);
+}
+#endif
+
 TagLibFilter::TagLibFilter(const string &mime_type) :
 	Filter(mime_type),
 	m_deleteFile(false),

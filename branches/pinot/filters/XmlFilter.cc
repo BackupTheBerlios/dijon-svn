@@ -24,8 +24,36 @@
 
 using std::string;
 
-using namespace std;
 using namespace Dijon;
+
+#ifdef _DYNAMIC_DIJON_FILTERS
+bool get_filter_types(std::set<std::string> &mime_types)
+{
+	mime_types.clear();
+	mime_types.insert("text/xml");
+	mime_types.insert("application/xml");
+
+	return true;
+}
+
+bool check_filter_data_input(int data_input)
+{
+	Filter::DataInput input = (Filter::DataInput)data_input;
+
+	if ((input == Filter::DOCUMENT_DATA) ||
+		(input == Filter::DOCUMENT_STRING))
+	{
+		return true;
+	}
+
+	return false;
+}
+
+Filter *get_filter(const std::string &mime_type)
+{
+	return new XmlFilter(mime_type);
+}
+#endif
 
 XmlFilter::XmlFilter(const string &mime_type) :
 	Filter(mime_type),

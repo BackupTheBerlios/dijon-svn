@@ -38,6 +38,33 @@ using std::map;
 using std::max;
 using namespace Dijon;
 
+#ifdef _DYNAMIC_DIJON_FILTERS
+bool get_filter_types(std::set<std::string> &mime_types)
+{
+	mime_types.clear();
+	mime_types.insert("application/mbox");
+
+	return true;
+}
+
+bool check_filter_data_input(int data_input)
+{
+	Filter::DataInput input = (Filter::DataInput)data_input;
+
+	if (input == Filter::DOCUMENT_FILE_NAME)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+Filter *get_filter(const std::string &mime_type)
+{
+	return new MboxFilter(mime_type);
+}
+#endif
+
 MboxFilter::MboxFilter(const string &mime_type) :
 	Filter(mime_type),
 	m_fd(-1),

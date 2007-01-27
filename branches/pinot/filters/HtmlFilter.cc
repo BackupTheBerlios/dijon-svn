@@ -35,6 +35,34 @@ using std::set;
 using namespace std;
 using namespace Dijon;
 
+#ifdef _DYNAMIC_DIJON_FILTERS
+bool get_filter_types(std::set<std::string> &mime_types)
+{
+	mime_types.clear();
+	mime_types.insert("text/html");
+
+	return true;
+}
+
+bool check_filter_data_input(int data_input)
+{
+	Filter::DataInput input = (Filter::DataInput)data_input;
+
+	if ((input == Filter::DOCUMENT_DATA) ||
+		(input == Filter::DOCUMENT_STRING))
+	{
+		return true;
+	}
+
+	return false;
+}
+
+Filter *get_filter(const std::string &mime_type)
+{
+	return new HtmlFilter(mime_type);
+}
+#endif
+
 static bool getInBetweenLinksText(HtmlFilter::ParserState *pState,
 	unsigned int currentLinkIndex)
 {
@@ -513,74 +541,6 @@ HtmlFilter::~HtmlFilter()
 	}
 }
 
-void HtmlFilter::rewind(void)
-{
-	if (m_pState != NULL)
-	{
-		delete m_pState;
-		m_pState = NULL;
-	}
-
-	m_metaData.clear();
-}
-
-bool HtmlFilter::parse_html(const string &html_doc)
-{
-	htmlSAXHandler saxHandler;
-
-	// Setup the SAX handler
-	memset((void*)&saxHandler, 0, sizeof(htmlSAXHandler));
-	saxHandler.startElement = (startElementSAXFunc)&startHandler;
-	saxHandler.endElement = (endElementSAXFunc)&endHandler;
-	saxHandler.characters = (charactersSAXFunc)&charactersHandler;
-	saxHandler.cdataBlock = (charactersSAXFunc)&cDataHandler;
-	saxHandler.ignorableWhitespace = (ignorableWhitespaceSAXFunc)&whitespaceHandler;
-	saxHandler.comment = (commentSAXFunc)&commentHandler;
-	saxHandler.fatalError = (fatalErrorSAXFunc)&errorHandler;
-	saxHandler.error = (errorSAXFunc)&errorHandler;
-	saxHandler.warning = (warningSAXFunc)&warningHandler;
-
-	m_pState = new ParserState();
-
-	htmlParserCtxtPtr pContext = htmlCreatePushParserCtxt(&saxHandler, (void*)m_pState,
-		html_doc.c_str(), (int)html_doc.length(), "", XML_CHAR_ENCODING_NONE);
-	if (pContext != NULL)
-	{
-		xmlCtxtUseOptions(pContext, 0);
-
-		// Parse
-		htmlParseChunk(pContext, html_doc.c_str(), (int)html_doc.length(), 0);
-
-		// Free
-		htmlParseChunk(pContext, html_doc.c_str(), 0, 1);
-		xmlDocPtr pDoc = pContext->myDoc;
-		int ret = pContext->wellFormed;
-		xmlFreeParserCtxt(pContext);
-		if (!ret)
-		{
-#ifdef DEBUG
-			cout << "HtmlFilter::parse_html: freeing document" << endl;
-#endif
-			xmlFreeDoc(pDoc);
-		}
-	}
-	else
-	{
-		cerr << "HtmlFilter::parse_html: couldn't create parser context" << endl;
-	}
-
-	// The text after the last link might make a good abstract
-	if (m_pState->m_findAbstract == true)
-	{
-		getInBetweenLinksText(m_pState, m_pState->m_currentLink.m_index);
-	}
-
-	// Append META keywords, if any were found
-	m_pState->m_text += m_pState->m_metaTags["keywords"];
-
-	return true;
-}
-
 bool HtmlFilter::is_data_input_ok(DataInput input) const
 {
 	if ((input == DOCUMENT_DATA) ||
@@ -720,4 +680,72 @@ bool HtmlFilter::skip_to_document(const string &ipath)
 string HtmlFilter::get_error(void) const
 {
 	return m_error;
+}
+
+void HtmlFilter::rewind(void)
+{
+	if (m_pState != NULL)
+	{
+		delete m_pState;
+		m_pState = NULL;
+	}
+
+	m_metaData.clear();
+}
+
+bool HtmlFilter::parse_html(const string &html_doc)
+{
+	htmlSAXHandler saxHandler;
+
+	// Setup the SAX handler
+	memset((void*)&saxHandler, 0, sizeof(htmlSAXHandler));
+	saxHandler.startElement = (startElementSAXFunc)&startHandler;
+	saxHandler.endElement = (endElementSAXFunc)&endHandler;
+	saxHandler.characters = (charactersSAXFunc)&charactersHandler;
+	saxHandler.cdataBlock = (charactersSAXFunc)&cDataHandler;
+	saxHandler.ignorableWhitespace = (ignorableWhitespaceSAXFunc)&whitespaceHandler;
+	saxHandler.comment = (commentSAXFunc)&commentHandler;
+	saxHandler.fatalError = (fatalErrorSAXFunc)&errorHandler;
+	saxHandler.error = (errorSAXFunc)&errorHandler;
+	saxHandler.warning = (warningSAXFunc)&warningHandler;
+
+	m_pState = new ParserState();
+
+	htmlParserCtxtPtr pContext = htmlCreatePushParserCtxt(&saxHandler, (void*)m_pState,
+		html_doc.c_str(), (int)html_doc.length(), "", XML_CHAR_ENCODING_NONE);
+	if (pContext != NULL)
+	{
+		xmlCtxtUseOptions(pContext, 0);
+
+		// Parse
+		htmlParseChunk(pContext, html_doc.c_str(), (int)html_doc.length(), 0);
+
+		// Free
+		htmlParseChunk(pContext, html_doc.c_str(), 0, 1);
+		xmlDocPtr pDoc = pContext->myDoc;
+		int ret = pContext->wellFormed;
+		xmlFreeParserCtxt(pContext);
+		if (!ret)
+		{
+#ifdef DEBUG
+			cout << "HtmlFilter::parse_html: freeing document" << endl;
+#endif
+			xmlFreeDoc(pDoc);
+		}
+	}
+	else
+	{
+		cerr << "HtmlFilter::parse_html: couldn't create parser context" << endl;
+	}
+
+	// The text after the last link might make a good abstract
+	if (m_pState->m_findAbstract == true)
+	{
+		getInBetweenLinksText(m_pState, m_pState->m_currentLink.m_index);
+	}
+
+	// Append META keywords, if any were found
+	m_pState->m_text += m_pState->m_metaTags["keywords"];
+
+	return true;
 }
