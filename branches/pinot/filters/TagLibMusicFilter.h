@@ -25,13 +25,13 @@
 
 namespace Dijon
 {
-    class TagLibFilter : public Filter
+    class TagLibMusicFilter : public Filter
     {
     public:
 	/// Builds an empty filter.
-	TagLibFilter(const std::string &mime_type);
+	TagLibMusicFilter(const std::string &mime_type);
 	/// Destroys the filter.
-	virtual ~TagLibFilter();
+	virtual ~TagLibMusicFilter();
 
 
 	// Information.
@@ -107,10 +107,10 @@ namespace Dijon
 	void rewind(void);
 
     private:
-	/// TagLibFilter objects cannot be copied.
-	TagLibFilter(const TagLibFilter &other);
+	/// TagLibMusicFilter objects cannot be copied.
+	TagLibMusicFilter(const TagLibMusicFilter &other);
 	/// Filter objects cannot be copied.
-	TagLibFilter& operator=(const TagLibFilter& other);
+	TagLibMusicFilter& operator=(const TagLibMusicFilter& other);
 
     };
 }

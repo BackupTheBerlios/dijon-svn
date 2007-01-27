@@ -30,13 +30,13 @@
 
 namespace Dijon
 {
-    class MboxFilter : public Filter
+    class GMimeMboxFilter : public Filter
     {
     public:
 	/// Builds an empty filter.
-	MboxFilter(const std::string &mime_type);
+	GMimeMboxFilter(const std::string &mime_type);
 	/// Destroys the filter.
-	virtual ~MboxFilter();
+	virtual ~GMimeMboxFilter();
 
 
 	// Information.
@@ -108,7 +108,7 @@ namespace Dijon
 	std::string m_defaultCharset;
 	std::string m_fileName;
 	int m_fd;
-	GMimeStream *m_pMboxStream;
+	GMimeStream *m_pGMimeMboxStream;
 	GMimeParser *m_pParser;
 	GMimeMessage *m_pMimeMessage;
 	int m_partsCount;
@@ -126,10 +126,10 @@ namespace Dijon
 	char *extractPart(GMimeObject *mimeObject, std::string &contentType, ssize_t &partLen);
 
     private:
-	/// MboxFilter objects cannot be copied.
-	MboxFilter(const MboxFilter &other);
+	/// GMimeMboxFilter objects cannot be copied.
+	GMimeMboxFilter(const GMimeMboxFilter &other);
 	/// Filter objects cannot be copied.
-	MboxFilter& operator=(const MboxFilter& other);
+	GMimeMboxFilter& operator=(const GMimeMboxFilter& other);
 
     };
 }

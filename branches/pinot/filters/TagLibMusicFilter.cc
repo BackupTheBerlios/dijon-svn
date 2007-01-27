@@ -21,7 +21,7 @@
 #include <tfile.h>
 #include <tag.h>
 
-#include "TagLibFilter.h"
+#include "TagLibMusicFilter.h"
 
 using std::string;
 using namespace Dijon;
@@ -55,23 +55,23 @@ bool check_filter_data_input(int data_input)
 
 Filter *get_filter(const std::string &mime_type)
 {
-	return new TagLibFilter(mime_type);
+	return new TagLibMusicFilter(mime_type);
 }
 #endif
 
-TagLibFilter::TagLibFilter(const string &mime_type) :
+TagLibMusicFilter::TagLibMusicFilter(const string &mime_type) :
 	Filter(mime_type),
 	m_deleteFile(false),
 	m_parseDocument(false)
 {
 }
 
-TagLibFilter::~TagLibFilter()
+TagLibMusicFilter::~TagLibMusicFilter()
 {
 	rewind();
 }
 
-bool TagLibFilter::is_data_input_ok(DataInput input) const
+bool TagLibMusicFilter::is_data_input_ok(DataInput input) const
 {
 	if ((input == DOCUMENT_DATA) ||
 		(input == DOCUMENT_STRING) ||
@@ -83,12 +83,12 @@ bool TagLibFilter::is_data_input_ok(DataInput input) const
 	return false;
 }
 
-bool TagLibFilter::set_property(Properties prop_name, const string &prop_value)
+bool TagLibMusicFilter::set_property(Properties prop_name, const string &prop_value)
 {
 	return false;
 }
 
-bool TagLibFilter::set_document_data(const char *data_ptr, unsigned int data_length)
+bool TagLibMusicFilter::set_document_data(const char *data_ptr, unsigned int data_length)
 {
 	char inTemplate[18] = "/tmp/filterXXXXXX";
 
@@ -117,7 +117,7 @@ bool TagLibFilter::set_document_data(const char *data_ptr, unsigned int data_len
 	return true;
 }
 
-bool TagLibFilter::set_document_string(const string &data_str)
+bool TagLibMusicFilter::set_document_string(const string &data_str)
 {
 	if (data_str.empty() == true)
 	{
@@ -127,7 +127,7 @@ bool TagLibFilter::set_document_string(const string &data_str)
 	return set_document_data(data_str.c_str(), data_str.length());
 }
 
-bool TagLibFilter::set_document_file(const string &file_path)
+bool TagLibMusicFilter::set_document_file(const string &file_path)
 {
 	if (file_path.empty() == true)
 	{
@@ -143,17 +143,17 @@ bool TagLibFilter::set_document_file(const string &file_path)
 	return true;
 }
 
-bool TagLibFilter::set_document_uri(const string &uri)
+bool TagLibMusicFilter::set_document_uri(const string &uri)
 {
 	return false;
 }
 
-bool TagLibFilter::has_documents(void) const
+bool TagLibMusicFilter::has_documents(void) const
 {
 	return m_parseDocument;
 }
 
-bool TagLibFilter::next_document(void)
+bool TagLibMusicFilter::next_document(void)
 {
 	if (m_parseDocument == true)
 	{
@@ -197,7 +197,7 @@ bool TagLibFilter::next_document(void)
 	return false;
 }
 
-bool TagLibFilter::skip_to_document(const string &ipath)
+bool TagLibMusicFilter::skip_to_document(const string &ipath)
 {
 	if (ipath.empty() == true)
 	{
@@ -207,12 +207,12 @@ bool TagLibFilter::skip_to_document(const string &ipath)
 	return false;
 }
 
-string TagLibFilter::get_error(void) const
+string TagLibMusicFilter::get_error(void) const
 {
 	return "";
 }
 
-void TagLibFilter::rewind(void)
+void TagLibMusicFilter::rewind(void)
 {
 	if ((m_deleteFile == true) &&
 		(m_filePath.empty() == false))

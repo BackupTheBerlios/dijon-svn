@@ -41,7 +41,6 @@ int main(int argc, char **argv)
 
 	FilterFactory::loadFilters("/usr/lib64/pinot/filters", "/home/fabrice/Projects/MetaSE/pinot/Tokenize/filters/external-filters.xml");
 	string mimeType;
-	Filter *pFilter = NULL;
 
 	// How shall we get the filter ?
 	if ((argc >= 4) &&
@@ -54,7 +53,7 @@ int main(int argc, char **argv)
 		mimeType = MIMEScanner::scanFile(argv[1]);
 	}
 
-	pFilter = FilterFactory::getFilter(mimeType);
+	Filter *pFilter = FilterFactory::getFilter(mimeType);
 	if (pFilter == NULL)
 	{
 		cerr << "Couldn't obtain filter for " << argv[1] << " !" << endl;
