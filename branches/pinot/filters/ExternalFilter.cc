@@ -35,6 +35,36 @@ using std::endl;
 
 using namespace Dijon;
 
+#ifdef _DYNAMIC_DIJON_FILTERS
+bool get_filter_types(std::set<std::string> &mime_types)
+{
+#ifdef _DIJON_EXTERNALFILTER_CONFFILE
+	ExternalFilter::initialize(_DIJON_EXTERNALFILTER_CONFFILE, mime_types);
+#else
+	ExternalFilter::initialize("/etc/dijon/external-filters.xml", mime_types);
+#endif
+
+	return true;
+}
+
+bool check_filter_data_input(int data_input)
+{
+	Filter::DataInput input = (Filter::DataInput)data_input;
+
+	if (input == Filter::DOCUMENT_FILE_NAME)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+Filter *get_filter(const std::string &mime_type)
+{
+	return new ExternalFilter(mime_type);
+}
+#endif
+
 map<string, string> ExternalFilter::m_commandsByType;
 
 ExternalFilter::ExternalFilter(const string &mime_type) :

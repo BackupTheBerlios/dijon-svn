@@ -33,9 +33,8 @@ namespace Dijon
     public:
 	virtual ~FilterFactory();
 
-	/// Loads the filter libraries in the given directory.
-	static unsigned int loadFilters(const std::string &dir_name,
-		const std::string &externalfilters_config_file);
+	/// Loads the filter libraries found in the given directory.
+	static unsigned int loadFilters(const std::string &dir_name);
 
 	/// Returns a Filter that handles the given MIME type.
 	static Filter *getFilter(const std::string &mime_type);
@@ -50,7 +49,6 @@ namespace Dijon
 	static void unloadFilters(void);
 
     protected:
-	static std::set<std::string> m_externalTypes;
 	static std::map<std::string, std::string> m_types;
 	static std::map<std::string, void *> m_handles;
 

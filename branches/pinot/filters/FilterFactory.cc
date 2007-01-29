@@ -28,7 +28,6 @@
 #include <iostream>
 
 #include "Filter.h"
-#include "ExternalFilter.h"
 #include "TextFilter.h"
 #include "FilterFactory.h"
 
@@ -51,7 +50,6 @@ using std::copy;
 using std::inserter;
 using namespace Dijon;
 
-set<string> FilterFactory::m_externalTypes;
 map<string, string> FilterFactory::m_types;
 map<string, void *> FilterFactory::m_handles;
 
@@ -63,8 +61,7 @@ FilterFactory::~FilterFactory()
 {
 }
 
-unsigned int FilterFactory::loadFilters(const string &dir_name,
-	const string &externalfilters_config_file)
+unsigned int FilterFactory::loadFilters(const string &dir_name)
 {
 	struct stat fileStat;
 	unsigned int count = 0;
@@ -219,8 +216,7 @@ Filter *FilterFactory::getFilter(const string &mime_type)
 	cout << "FilterFactory::getFilter: file type is " << typeOnly << endl;
 #endif
 
-	if ((typeOnly == "text/plain") ||
-		(m_externalTypes.find(typeOnly) != m_externalTypes.end()))
+	if (typeOnly == "text/plain")
 	{
 		return new TextFilter(typeOnly);
 	}
@@ -244,8 +240,6 @@ void FilterFactory::getSupportedTypes(set<string> &mime_types)
 
 	// List supported types
 	mime_types.insert("text/plain");
-	copy(mime_types.begin(), mime_types.end(),
-		 inserter(mime_types, m_externalTypes.begin()));
 }
 
 bool FilterFactory::isSupportedType(const string &mime_type)
@@ -269,8 +263,7 @@ bool FilterFactory::isSupportedType(const string &mime_type)
 		(typeOnly == "application/ogg") ||
 		(typeOnly == "audio/x-flac+ogg") ||
 		(typeOnly == "audio/x-flac") ||
-		(strncasecmp(typeOnly.c_str(), "text", 4) == 0) ||
-		(m_externalTypes.find(typeOnly) != m_externalTypes.end()))
+		(strncasecmp(typeOnly.c_str(), "text", 4) == 0))
 	{
 		return true;
 	}
