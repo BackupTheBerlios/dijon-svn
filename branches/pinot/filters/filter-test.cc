@@ -24,6 +24,7 @@
 #include <string>
 #include <map>
 
+#include "config.h"
 #include "MIMEScanner.h"
 #include "Tokenizer.h"
 #include "FilterFactory.h"
@@ -31,59 +32,76 @@
 using namespace std;
 using namespace Dijon;
 
-int main(int argc, char **argv)
+static bool filterDocument(Document &doc, const char *pOption, unsigned int count)
 {
-	if (argc < 3)
-	{
-		cerr << "Usage: " << argv[0] << " <file name> RAWDATA|LISTTOKENS [TYPE=<type>]" << endl;
-		return EXIT_FAILURE;
-	}
-
-	FilterFactory::loadFilters("/usr/lib64/pinot/filters");
-	string mimeType;
-
-	// How shall we get the filter ?
-	if ((argc >= 4) &&
-		(strncmp(argv[3], "TYPE=", 5) == 0))
-	{
-		mimeType = argv[3] + 5;
-	}
-	else
-	{
-		mimeType = MIMEScanner::scanFile(argv[1]);
-	}
+	string mimeType(doc.getType());
+	Url urlObj(doc.getLocation());
+	string fileName;
+	unsigned int dataLength = 0;
+	const char *pData = doc.getData(dataLength);
+	bool fedInput = false;
 
 	Filter *pFilter = FilterFactory::getFilter(mimeType);
 	if (pFilter == NULL)
 	{
-		cerr << "Couldn't obtain filter for " << argv[1] << " !" << endl;
-		return EXIT_FAILURE;
+		cerr << "Couldn't obtain filter for " << doc.getLocation() << endl;
+		return false;
 	}
 
-	if (pFilter->is_data_input_ok(Filter::DOCUMENT_FILE_NAME) == true)
+	if (urlObj.getProtocol() == "file")
 	{
-		pFilter->set_document_file(argv[1]);
+		fileName = doc.getLocation().substr(7);
 	}
-	else if (pFilter->is_data_input_ok(Filter::DOCUMENT_DATA) == true)
+
+	// Prefer feeding the data
+	if (((dataLength > 0) && (pData != NULL)) &&
+		(pFilter->is_data_input_ok(Filter::DOCUMENT_DATA) == true))
 	{
-		Document doc;
-		if (doc.setDataFromFile(argv[1]) == false)
+		cout << "Feeding data" << endl;
+
+		fedInput = pFilter->set_document_data(pData, dataLength);
+	}
+	// ... to feeding the file
+	if ((fedInput == false) &&
+		(fileName.empty() == false))
+	{ 
+		if (pFilter->is_data_input_ok(Filter::DOCUMENT_FILE_NAME) == true)
 		{
-			cerr << "Couldn't load " << argv[1] << " !" << endl;
-			delete pFilter;
-			return EXIT_FAILURE;
+			cout << "Feeding file " << fileName << endl;
+
+			fedInput = pFilter->set_document_file(fileName);
 		}
+		// ...and to feeding the file's contents
+		if ((fedInput == false) &&
+			(pFilter->is_data_input_ok(Filter::DOCUMENT_DATA) == true))
+		{
+			if (doc.setDataFromFile(fileName) == false)
+			{
+				cerr << "Couldn't load " << fileName << endl;
+				delete pFilter;
+				return false;
+			}
+			cout << "Feeding contents of file " << fileName << endl;
 
-		unsigned int dataLength = 0;
-		const char *pData = doc.getData(dataLength);
-
-		pFilter->set_document_data(pData, dataLength);
+			pData = doc.getData(dataLength);
+			if ((dataLength > 0) &&
+				(pData != NULL))
+			{
+				fedInput = pFilter->set_document_data(pData, dataLength);
+			}
+		}
 	}
 
-	unsigned int count = 0;
+	if (fedInput == false)
+	{
+		cerr << "Couldn't feed filter for " << doc.getLocation() << endl;
+		delete pFilter;
+		return false;
+	}
+
 	while (pFilter->has_documents() == true)
 	{
-		Document doc(argv[1], string("file://") + argv[1], mimeType, "");
+		Document filteredDoc(doc.getTitle(), doc.getLocation(), "text/plain", doc.getLanguage());
 		string uri, ipath;
 		unsigned int dataLength = 0;
 
@@ -99,7 +117,9 @@ int main(int argc, char **argv)
 		{
 			if (metaIter->first == "content")
 			{
-				doc.setData(metaIter->second.c_str(), metaIter->second.length());
+				filteredDoc.setData(metaIter->second.c_str(), metaIter->second.length());
+
+				cout << "Set " << metaIter->second.length() << " characters of data" << endl;
 			}
 			else if (metaIter->first == "ipath")
 			{
@@ -107,19 +127,19 @@ int main(int argc, char **argv)
 			}
 			else if (metaIter->first == "language")
 			{
-				doc.setLanguage(metaIter->second);
+				filteredDoc.setLanguage(metaIter->second);
 			}
 			else if (metaIter->first == "mimetype")
 			{
-				doc.setType(metaIter->second);
+				filteredDoc.setType(metaIter->second);
 			}
 			else if (metaIter->first == "size")
 			{
-				doc.setSize((off_t)atoi(metaIter->second.c_str()));
+				filteredDoc.setSize((off_t)atoi(metaIter->second.c_str()));
 			}
 			else if (metaIter->first == "title")
 			{
-				doc.setTitle(metaIter->second);
+				filteredDoc.setTitle(metaIter->second);
 			}
 			else if (metaIter->first == "uri")
 			{
@@ -129,39 +149,83 @@ int main(int argc, char **argv)
 
 		if (uri.empty() == false)
 		{
-			doc.setLocation(uri);
+			filteredDoc.setLocation(uri);
 		}
 		if (ipath.empty() == false)
 		{
-			doc.setLocation(doc.getLocation() + "?" + ipath);
+			filteredDoc.setLocation(filteredDoc.getLocation() + "?" + ipath);
 		}
-		cout << "Location: " << doc.getLocation() << endl;
+		cout << "Location: " << filteredDoc.getLocation() << endl;
+		cout << "MIME type: " << filteredDoc.getType() << endl;
 
-		Tokenizer tokens(&doc);
-
-		if (strncmp(argv[2], "RAWDATA", 5) == 0)
+		// Pass it down to another filter ?
+		if (filteredDoc.getType() != "text/plain")
 		{
-			// Call the base class's method
-			const Document *pDoc = tokens.Tokenizer::getDocument();
-			if (pDoc != NULL)
+			cout << "Passing down to another filter" << endl;
+
+			filterDocument(filteredDoc, pOption, count);
+		}
+		else
+		{
+			Tokenizer tokens(&filteredDoc);
+
+			if (strncmp(pOption, "RAWDATA", 5) == 0)
 			{
-				cout << "Raw text is: " << endl;
-				cout << pDoc->getData(dataLength) << endl;
+				// Call the base class's method
+				const Document *pDoc = tokens.Tokenizer::getDocument();
+				if (pDoc != NULL)
+				{
+					cout << "Raw text is: " << endl;
+					cout << pDoc->getData(dataLength) << endl;
+				}
 			}
-		}
-		else if (strncmp(argv[2], "LISTTOKENS", 10) == 0)
-		{
-			string token;
-
-			cout << "Tokens are: " << endl;
-			while (tokens.nextToken(token) == true)
+			else if (strncmp(pOption, "LISTTOKENS", 10) == 0)
 			{
-				cout << token << endl;
+				string token;
+
+				cout << "Tokens are: " << endl;
+				while (tokens.nextToken(token) == true)
+				{
+					cout << token << endl;
+				}
 			}
 		}
 	}
 
 	delete pFilter;
+
+	return true;
+}
+
+int main(int argc, char **argv)
+{
+	if (argc < 3)
+	{
+		cerr << "Usage: " << argv[0] << " <file name> RAWDATA|LISTTOKENS [TYPE=<type>]" << endl;
+		return EXIT_FAILURE;
+	}
+
+	FilterFactory::loadFilters(string(LIBDIR) + "/pinot/filters");
+	string mimeType;
+	unsigned int count = 0;
+
+	// How shall we get the filter ?
+	if ((argc >= 4) &&
+		(strncmp(argv[3], "TYPE=", 5) == 0))
+	{
+		mimeType = argv[3] + 5;
+	}
+	else
+	{
+		mimeType = MIMEScanner::scanFile(argv[1]);
+	}
+
+	Document baseDoc(argv[1], string("file://") + argv[1], mimeType, "");
+
+	if (filterDocument(baseDoc, argv[2], count) == false)
+	{
+		return EXIT_FAILURE;
+	}
 
 	return EXIT_SUCCESS;
 }

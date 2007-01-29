@@ -107,6 +107,7 @@ namespace Dijon
 
     protected:
 	static std::map<std::string, std::string> m_commandsByType;
+	static std::map<std::string, std::string> m_outputsByType;
 	bool m_doneWithDocument;
 	std::string m_filePath;
 

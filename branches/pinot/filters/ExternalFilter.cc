@@ -66,6 +66,7 @@ Filter *get_filter(const std::string &mime_type)
 #endif
 
 map<string, string> ExternalFilter::m_commandsByType;
+map<string, string> ExternalFilter::m_outputsByType;
 
 ExternalFilter::ExternalFilter(const string &mime_type) :
 	Filter(mime_type),
@@ -201,7 +202,17 @@ bool ExternalFilter::next_document(void)
 						fileBuffer[bytesRead] = '\0';
 
 						m_metaData["uri"] = "file://" + m_filePath;
-						m_metaData["mimetype"] = m_mimeType;
+						// What's the output type ?
+						map<string, string>::const_iterator outputIter = m_outputsByType.find(m_mimeType);
+						if (outputIter == m_outputsByType.end())
+						{
+							// Assume it's plain text if undefined
+							m_metaData["mimetype"] = "text/plain";
+						}
+						else
+						{
+							m_metaData["mimetype"] = outputIter->second;
+						}
 						m_metaData["content"] = string(fileBuffer, (unsigned int)bytesRead);
 						snprintf(numStr, 64, "%u", outStats.st_size);
 						m_metaData["size"] = numStr;
@@ -287,7 +298,7 @@ void ExternalFilter::initialize(const std::string &config_file, set<std::string>
 		// Get all filter elements
 		if (xmlStrncmp(pCurrentNode->name, BAD_CAST"filter", 6) == 0)
 		{
-			string mimeType, command, arguments;
+			string mimeType, command, arguments, output;
 
 			for (xmlNode *pCurrentCodecNode = pCurrentNode->children;
 				pCurrentCodecNode != NULL; pCurrentCodecNode = pCurrentCodecNode->next)
@@ -316,6 +327,10 @@ void ExternalFilter::initialize(const std::string &config_file, set<std::string>
 				{
 					arguments = pChildContent;
 				}
+				else if (xmlStrncmp(pCurrentCodecNode->name, BAD_CAST"output", 6) == 0)
+				{
+					output = pChildContent;
+				}
 
 				// Free
 				xmlFree(pChildContent);
@@ -329,7 +344,15 @@ void ExternalFilter::initialize(const std::string &config_file, set<std::string>
 				cout << "ExternalFilter::initialize: " << mimeType << "="
 					<< command << " " << arguments << endl;
 #endif
+
+				// Command to run
 				m_commandsByType[mimeType] = command + " " + arguments;
+				// Output
+				if (output.empty() == false)
+				{
+					m_outputsByType[mimeType] = output;
+				}
+
 				types.insert(mimeType);
 			}
 		}
