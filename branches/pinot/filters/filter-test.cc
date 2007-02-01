@@ -199,6 +199,8 @@ static bool filterDocument(Document &doc, const char *pOption, unsigned int coun
 
 int main(int argc, char **argv)
 {
+	int status = EXIT_SUCCESS;
+
 	if (argc < 3)
 	{
 		cerr << "Usage: " << argv[0] << " <file name> RAWDATA|LISTTOKENS [TYPE=<type>]" << endl;
@@ -224,8 +226,9 @@ int main(int argc, char **argv)
 
 	if (filterDocument(baseDoc, argv[2], count) == false)
 	{
-		return EXIT_FAILURE;
+		status = EXIT_FAILURE;
 	}
+	FilterFactory::unloadFilters();
 
-	return EXIT_SUCCESS;
+	return status;
 }

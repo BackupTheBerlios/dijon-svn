@@ -238,8 +238,14 @@ void FilterFactory::getSupportedTypes(set<string> &mime_types)
 {
 	mime_types.clear();
 
-	// List supported types
+	// Built-in types
 	mime_types.insert("text/plain");
+	// Library-handled types
+	for (map<string, string>::iterator typeIter = m_types.begin();
+		typeIter != m_types.end(); ++typeIter)
+	{
+		mime_types.insert(typeIter->first);
+	}
 }
 
 bool FilterFactory::isSupportedType(const string &mime_type)
@@ -255,14 +261,7 @@ bool FilterFactory::isSupportedType(const string &mime_type)
 
 	// Is it a built-in type ?
 	if ((typeOnly == "text/html") ||
-		(typeOnly == "application/mbox") ||
-		(typeOnly == "text/xml") ||
-		(typeOnly == "application/xml") ||
-		(typeOnly == "audio/mpeg") ||
-		(typeOnly == "audio/x-mp3") ||
-		(typeOnly == "application/ogg") ||
-		(typeOnly == "audio/x-flac+ogg") ||
-		(typeOnly == "audio/x-flac") ||
+		(m_types.find(typeOnly) != m_types.end()) ||
 		(strncasecmp(typeOnly.c_str(), "text", 4) == 0))
 	{
 		return true;

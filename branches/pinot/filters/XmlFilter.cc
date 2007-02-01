@@ -186,7 +186,7 @@ bool XmlFilter::parse_xml(const string &xml_doc)
 			break;
 		}
 
-		stripped.erase(startPos, endPos - startPos + 1);
+		stripped.replace(startPos, endPos - startPos + 1, " ");
 
 		// Next
 		startPos = stripped.find("<");
