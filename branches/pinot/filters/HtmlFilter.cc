@@ -20,6 +20,8 @@
 #include <libxml/xmlerror.h>
 #include <libxml/HTMLparser.h>
 #include <iostream>
+#include <algorithm>
+#include <utility>
 
 #include "StringManip.h"
 #include "Url.h"
@@ -31,11 +33,13 @@ using std::endl;
 using std::string;
 using std::map;
 using std::set;
+using std::copy;
+using std::inserter;
 
 using namespace std;
 using namespace Dijon;
 
-#ifdef _DYNAMIC_DIJON_FILTERS
+#ifdef _DYNAMIC_DIJON_HTMLFILTER
 bool get_filter_types(std::set<std::string> &mime_types)
 {
 	mime_types.clear();
@@ -521,7 +525,9 @@ unsigned int HtmlFilter::m_initialized = 0;
 
 HtmlFilter::HtmlFilter(const string &mime_type) :
 	Filter(mime_type),
-	m_pState(NULL)
+	m_pState(NULL),
+	m_skipText(false),
+	m_findAbstract(true)
 {
 	if (m_initialized == 0)
 	{
@@ -559,12 +565,9 @@ bool HtmlFilter::set_property(Properties prop_name, const string &prop_value)
 		if (prop_value == "view")
 		{
 			// This will ensure text is skipped
-			++m_pState->m_skip;
-		}
-		else
-		{
-			// Attempt to find an abstract
-			m_pState->m_findAbstract = true;
+			m_skipText = true;
+			// ..and that we don't attempt finding an abstract
+			m_findAbstract = false;
 		}
 
 		return true;
@@ -710,6 +713,11 @@ bool HtmlFilter::parse_html(const string &html_doc)
 	saxHandler.warning = (warningSAXFunc)&warningHandler;
 
 	m_pState = new ParserState();
+	if (m_skipText == true)
+	{
+		++m_pState->m_skip;
+		m_pState->m_findAbstract = m_findAbstract;
+	}
 
 	htmlParserCtxtPtr pContext = htmlCreatePushParserCtxt(&saxHandler, (void*)m_pState,
 		html_doc.c_str(), (int)html_doc.length(), "", XML_CHAR_ENCODING_NONE);
@@ -749,3 +757,19 @@ bool HtmlFilter::parse_html(const string &html_doc)
 
 	return true;
 }
+
+bool HtmlFilter::get_links(set<Link> &links) const
+{
+	links.clear();
+
+	if (m_pState != NULL)
+	{
+		copy(m_pState->m_links.begin(), m_pState->m_links.end(),
+			inserter(links, links.begin()));
+
+		return true;
+	}
+
+	return false;
+}
+

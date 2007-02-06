@@ -120,6 +120,9 @@ namespace Dijon
 	/// Returns the message for the most recent error that has occured.
 	virtual std::string get_error(void) const;
 
+	/// Returns the links set.
+	bool get_links(std::set<Link> &links) const;
+
 	class ParserState
 	{
 		public:
@@ -149,6 +152,8 @@ namespace Dijon
 	static unsigned int m_initialized;
 	ParserState *m_pState;
 	std::string m_error;
+	bool m_skipText;
+	bool m_findAbstract;
 
 	void rewind(void);
 

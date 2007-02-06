@@ -30,6 +30,12 @@
 #include "Filter.h"
 #include "TextFilter.h"
 #include "FilterFactory.h"
+#ifndef _DYNAMIC_DIJON_HTMLFILTER
+#include "HtmlFilter.h"
+#endif
+#ifndef _DYNAMIC_DIJON_XMLFILTER
+#include "XmlFilter.h"
+#endif
 
 #ifdef __CYGWIN__
 #define DLOPEN_FLAGS RTLD_LAZY
@@ -47,7 +53,6 @@ using std::string;
 using std::set;
 using std::map;
 using std::copy;
-using std::inserter;
 using namespace Dijon;
 
 map<string, string> FilterFactory::m_types;
@@ -220,6 +225,19 @@ Filter *FilterFactory::getFilter(const string &mime_type)
 	{
 		return new TextFilter(typeOnly);
 	}
+#ifndef _DYNAMIC_DIJON_HTMLFILTER
+	else if (typeOnly == "text/html")
+	{
+		return new HtmlFilter(typeOnly);
+	}
+#endif
+#ifndef _DYNAMIC_DIJON_XMLFILTER
+	else if ((typeOnly == "text/xml") ||
+		(typeOnly == "application/xml"))
+	{
+		return new XmlFilter(typeOnly);
+	}
+#endif
 
 	Filter *pFilter = getLibraryFilter(typeOnly);
 	if (pFilter == NULL)
@@ -240,6 +258,13 @@ void FilterFactory::getSupportedTypes(set<string> &mime_types)
 
 	// Built-in types
 	mime_types.insert("text/plain");
+#ifndef _DYNAMIC_DIJON_HTMLFILTER
+	mime_types.insert("text/html");
+#endif
+#ifndef _DYNAMIC_DIJON_XMLFILTER
+	mime_types.insert("text/xml");
+	mime_types.insert("application/xml");
+#endif
 	// Library-handled types
 	for (map<string, string>::iterator typeIter = m_types.begin();
 		typeIter != m_types.end(); ++typeIter)

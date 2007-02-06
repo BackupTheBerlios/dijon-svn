@@ -26,7 +26,7 @@ using std::string;
 
 using namespace Dijon;
 
-#ifdef _DYNAMIC_DIJON_FILTERS
+#ifdef _DYNAMIC_DIJON_XMLFILTER
 bool get_filter_types(std::set<std::string> &mime_types)
 {
 	mime_types.clear();
