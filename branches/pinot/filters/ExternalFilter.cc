@@ -214,7 +214,7 @@ bool ExternalFilter::next_document(void)
 							m_metaData["mimetype"] = outputIter->second;
 						}
 						m_metaData["content"] = string(fileBuffer, (unsigned int)bytesRead);
-						snprintf(numStr, 64, "%u", outStats.st_size);
+						snprintf(numStr, 64, "%d", outStats.st_size);
 						m_metaData["size"] = numStr;
 						gotOutput = true;
 					}

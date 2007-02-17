@@ -506,7 +506,7 @@ bool Link::operator<(const Link &other) const
 
 HtmlFilter::ParserState::ParserState() :
 	m_isValid(true),
-	m_findAbstract(false),
+	m_findAbstract(true),
 	m_textPos(0),
 	m_inHead(false),
 	m_foundHead(false),
@@ -568,6 +568,11 @@ bool HtmlFilter::set_property(Properties prop_name, const string &prop_value)
 			m_skipText = true;
 			// ..and that we don't attempt finding an abstract
 			m_findAbstract = false;
+		}
+		else
+		{
+			m_skipText = false;
+			m_findAbstract = true;
 		}
 
 		return true;
@@ -716,7 +721,6 @@ bool HtmlFilter::parse_html(const string &html_doc)
 	if (m_skipText == true)
 	{
 		++m_pState->m_skip;
-		m_pState->m_findAbstract = m_findAbstract;
 	}
 
 	htmlParserCtxtPtr pContext = htmlCreatePushParserCtxt(&saxHandler, (void*)m_pState,
