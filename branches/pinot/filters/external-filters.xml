@@ -198,4 +198,14 @@ text/plain, text/html and text/xml or application/xml.
   <command>antiword</command>
   <arguments>%s</arguments>
 </filter>
+<filter>
+  <mimetype>application/x-rpm</mimetype>
+  <command>rpm</command>
+  <arguments>-qlp %s</arguments>
+</filter>
+<filter>
+  <mimetype>application/x-tar</mimetype>
+  <command>tar</command>
+  <arguments>tvf %s</arguments>
+</filter>
 </external-filters>

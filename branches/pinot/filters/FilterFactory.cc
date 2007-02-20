@@ -143,7 +143,7 @@ unsigned int FilterFactory::loadFilters(const string &dir_name)
 
 							m_handles[fileName] = pHandle;
 						}
-						cerr << "FilterFactory::loadFilters: couldn't get types from " << fileName << endl;
+						else cerr << "FilterFactory::loadFilters: couldn't get types from " << fileName << endl;
 					}
 					else cerr << "FilterFactory::loadFilters: " << dlerror() << endl;
 				}
