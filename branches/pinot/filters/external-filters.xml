@@ -16,9 +16,9 @@ will have to write a more traditional filter.
 Now, an example entry:
 
 <filter>
-  <mimetype>text/rtf</mimetype>
-  <command>unrtf</command>
-  <arguments>--nopict --html %s</arguments>
+  <mimetype>application/pdf</mimetype>
+  <command>pdftotext</command>
+  <arguments>-htmlmeta %s -</arguments>
   <output>text/html</output>
 </filter>
 
@@ -185,13 +185,13 @@ is optional.
 <filter>
   <mimetype>application/rtf</mimetype>
   <command>unrtf</command>
-  <arguments>--nopict --html %s</arguments>
+  <arguments>-n -t html %s</arguments>
   <output>text/html</output>
 </filter>
 <filter>
   <mimetype>text/rtf</mimetype>
   <command>unrtf</command>
-  <arguments>--nopict --html %s</arguments>
+  <arguments>-n -t html %s</arguments>
   <output>text/html</output>
 </filter>
 <filter>
