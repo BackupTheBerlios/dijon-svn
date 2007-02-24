@@ -61,7 +61,7 @@ Filter *get_filter(const std::string &mime_type)
 
 TagLibMusicFilter::TagLibMusicFilter(const string &mime_type) :
 	Filter(mime_type),
-	m_deleteFile(false),
+	m_unlinkWhenDone(false),
 	m_parseDocument(false)
 {
 }
@@ -90,44 +90,15 @@ bool TagLibMusicFilter::set_property(Properties prop_name, const string &prop_va
 
 bool TagLibMusicFilter::set_document_data(const char *data_ptr, unsigned int data_length)
 {
-	char inTemplate[18] = "/tmp/filterXXXXXX";
-
-	if ((data_ptr == NULL) ||
-		(data_length == 0))
-	{
-		return false;
-	}
-
-	rewind();
-
-	int inFd = mkstemp(inTemplate);
-	if (inFd != -1)
-	{
-		// Save the data into a temporary file
-		if (write(inFd, (const void*)data_ptr, data_length) != -1)
-		{
-			m_filePath = inTemplate;
-			m_deleteFile = true;
-			m_parseDocument = true;
-		}
-
-		close(inFd);
-	}
-
-	return true;
+	return false;
 }
 
 bool TagLibMusicFilter::set_document_string(const string &data_str)
 {
-	if (data_str.empty() == true)
-	{
-		return false;
-	}
-
-	return set_document_data(data_str.c_str(), data_str.length());
+	return false;
 }
 
-bool TagLibMusicFilter::set_document_file(const string &file_path)
+bool TagLibMusicFilter::set_document_file(const string &file_path, bool unlink_when_done)
 {
 	if (file_path.empty() == true)
 	{
@@ -137,7 +108,7 @@ bool TagLibMusicFilter::set_document_file(const string &file_path)
 	rewind();
 
 	m_filePath = file_path;
-	m_deleteFile = false;
+	m_unlinkWhenDone = unlink_when_done;
 	m_parseDocument = true;
 
 	return true;
@@ -214,14 +185,12 @@ string TagLibMusicFilter::get_error(void) const
 
 void TagLibMusicFilter::rewind(void)
 {
-	if ((m_deleteFile == true) &&
-		(m_filePath.empty() == false))
+	m_metaData.clear();
+	if (m_unlinkWhenDone == true)
 	{
 		unlink(m_filePath.c_str());
+		m_unlinkWhenDone = false;
 	}
-
-	m_metaData.clear();
 	m_filePath.clear();
-	m_deleteFile = false;
 	m_parseDocument = false;
 }

@@ -71,7 +71,8 @@ namespace Dijon
 	 * Call next_document() to position the filter onto the first document.
 	 * Returns false if this input is not supported or an error occured.
 	 */
-	virtual bool set_document_file(const std::string &file_path);
+	virtual bool set_document_file(const std::string &file_path,
+		bool unlink_when_done = false);
 
 	/** (Re)initializes the filter with the given URI.
 	 * Call next_document() to position the filter onto the first document.
@@ -107,6 +108,7 @@ namespace Dijon
     protected:
 	std::string m_defaultCharset;
 	std::string m_fileName;
+	bool m_unlinkWhenDone;
 	int m_fd;
 	GMimeStream *m_pGMimeMboxStream;
 	GMimeParser *m_pParser;
@@ -119,7 +121,7 @@ namespace Dijon
 
 	bool initialize(void);
 
-	void finalize(void);
+	void finalize(bool fullReset);
 
 	bool extractMessage(const std::string &subject);
 

@@ -67,13 +67,15 @@ Filter *get_filter(const std::string &mime_type)
 
 GMimeMboxFilter::GMimeMboxFilter(const string &mime_type) :
 	Filter(mime_type),
+	m_unlinkWhenDone(false),
 	m_fd(-1),
 	m_pGMimeMboxStream(NULL),
 	m_pParser(NULL),
 	m_pMimeMessage(NULL),
 	m_partsCount(-1),
 	m_partNum(-1),
-	m_messageStart(0)
+	m_messageStart(0),
+	m_foundDocument(false)
 {
 	// Initialize gmime
 	g_mime_init(GMIME_INIT_FLAG_UTF8);
@@ -81,7 +83,7 @@ GMimeMboxFilter::GMimeMboxFilter(const string &mime_type) :
 
 GMimeMboxFilter::~GMimeMboxFilter()
 {
-	finalize();
+	finalize(true);
 
 	// Shutdown gmime
 	g_mime_shutdown();
@@ -119,15 +121,16 @@ bool GMimeMboxFilter::set_document_string(const string &data_str)
 	return false;
 }
 
-bool GMimeMboxFilter::set_document_file(const string &file_path)
+bool GMimeMboxFilter::set_document_file(const string &file_path, bool unlink_when_done)
 {
 	// Close/free whatever was opened/allocated on a previous call to set_document()
-	finalize();
+	finalize(true);
 	m_fileName = file_path;
+	m_unlinkWhenDone = unlink_when_done;
 	m_partsCount = m_partNum = -1;
 	m_messageStart = 0;
 	m_messageDate.clear();
-	m_foundDocument = true;
+	m_foundDocument = false;
 
 	if (initialize() == true)
 	{
@@ -181,11 +184,10 @@ bool GMimeMboxFilter::skip_to_document(const string &ipath)
 		return false;
 	}
 
-	// Close/free whatever was opened/allocated on a previous call to set_document()
-	finalize();
+	finalize(false);
 	m_partsCount = -1;
 	m_messageDate.clear();
-	m_foundDocument = true;
+	m_foundDocument = false;
 
 	if (initialize() == true)
 	{
@@ -254,7 +256,7 @@ bool GMimeMboxFilter::initialize(void)
 	return false;
 }
 
-void GMimeMboxFilter::finalize(void)
+void GMimeMboxFilter::finalize(bool fullReset)
 {
 	if (m_pMimeMessage != NULL)
 	{
@@ -277,8 +279,17 @@ void GMimeMboxFilter::finalize(void)
 		close(m_fd);
 		m_fd = -1;
 	}
-
 	m_metaData.clear();
+
+	if (fullReset == true)
+	{
+		if (m_unlinkWhenDone == true)
+		{
+			unlink(m_fileName.c_str());
+			m_unlinkWhenDone = false;
+		}
+		m_fileName.clear();
+	}
 }
 
 char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize_t &partLen)
@@ -488,7 +499,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 					m_metaData["creationdate"] = m_messageDate;
 					snprintf(posStr, 128, "%u", partLength);
 					m_metaData["size"] = posStr;
-					snprintf(posStr, 128, "o=%u&p=%d", m_messageStart, m_partNum);
+					snprintf(posStr, 128, "o=%u&p=%d", m_messageStart, max(m_partNum, 0));
 					m_metaData["ipath"] = posStr;
 #ifdef DEBUG
 					cout << "GMimeMboxFilter::extractMessage: message location is " << location

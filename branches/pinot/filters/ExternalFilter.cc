@@ -70,7 +70,8 @@ map<string, string> ExternalFilter::m_outputsByType;
 
 ExternalFilter::ExternalFilter(const string &mime_type) :
 	Filter(mime_type),
-	m_doneWithDocument(false)
+	m_doneWithDocument(false),
+	m_unlinkWhenDone(false)
 {
 }
 
@@ -104,7 +105,7 @@ bool ExternalFilter::set_document_string(const string &data_str)
 	return false;
 }
 
-bool ExternalFilter::set_document_file(const string &file_path)
+bool ExternalFilter::set_document_file(const string &file_path, bool unlink_when_done)
 {
 	if (file_path.empty() == true)
 	{
@@ -113,6 +114,7 @@ bool ExternalFilter::set_document_file(const string &file_path)
 
 	rewind();
 	m_filePath = file_path;
+	m_unlinkWhenDone = unlink_when_done;
 
 	return true;
 }
@@ -369,6 +371,12 @@ void ExternalFilter::rewind(void)
 {
 	m_metaData.clear();
 	m_doneWithDocument = false;
+	if (m_unlinkWhenDone == true)
+	{
+		unlink(m_filePath.c_str());
+		m_unlinkWhenDone = false;
+	}
+	m_filePath.clear();
 }
 
 string ExternalFilter::escapeQuotes(const string &file_name)

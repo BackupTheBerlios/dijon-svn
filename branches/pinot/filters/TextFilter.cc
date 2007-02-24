@@ -80,7 +80,7 @@ bool TextFilter::set_document_string(const string &data_str)
 	return true;
 }
 
-bool TextFilter::set_document_file(const string &file_path)
+bool TextFilter::set_document_file(const string &file_path, bool unlink_when_done)
 {
 	return false;
 }

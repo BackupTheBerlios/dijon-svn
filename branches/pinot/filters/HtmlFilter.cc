@@ -620,7 +620,7 @@ bool HtmlFilter::set_document_string(const string &data_str)
 	return parse_html(data_str);
 }
 
-bool HtmlFilter::set_document_file(const string &file_path)
+bool HtmlFilter::set_document_file(const string &file_path, bool unlink_when_done)
 {
 	return false;
 }
