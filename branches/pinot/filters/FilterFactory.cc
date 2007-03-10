@@ -30,12 +30,6 @@
 #include "Filter.h"
 #include "TextFilter.h"
 #include "FilterFactory.h"
-#ifndef _DYNAMIC_DIJON_HTMLFILTER
-#include "HtmlFilter.h"
-#endif
-#ifndef _DYNAMIC_DIJON_XMLFILTER
-#include "XmlFilter.h"
-#endif
 
 #ifdef __CYGWIN__
 #define DLOPEN_FLAGS RTLD_LAZY

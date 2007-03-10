@@ -45,6 +45,9 @@ bool get_filter_types(std::set<std::string> &mime_types)
 	mime_types.clear();
 	mime_types.insert("text/html");
 
+	// Take this opportunity to initialize HtmlFilter
+	HtmlFilter::initialize();
+
 	return true;
 }
 
@@ -521,30 +524,27 @@ HtmlFilter::ParserState::~ParserState()
 {
 }
 
-unsigned int HtmlFilter::m_initialized = 0;
-
 HtmlFilter::HtmlFilter(const string &mime_type) :
 	Filter(mime_type),
 	m_pState(NULL),
 	m_skipText(false),
 	m_findAbstract(true)
 {
-	if (m_initialized == 0)
-	{
-		xmlInitParser();
-		++m_initialized;
-	}
 }
 
 HtmlFilter::~HtmlFilter()
 {
 	rewind();
+}
 
-	--m_initialized;
-	if (m_initialized == 0)
-	{
-		xmlCleanupParser();
-	}
+void HtmlFilter::initialize(void)
+{
+	xmlInitParser();
+}
+
+void HtmlFilter::shutdown(void)
+{
+	xmlCleanupParser();
 }
 
 bool HtmlFilter::is_data_input_ok(DataInput input) const

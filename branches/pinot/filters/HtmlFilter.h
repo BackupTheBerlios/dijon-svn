@@ -55,6 +55,12 @@ namespace Dijon
 	virtual ~HtmlFilter();
 
 
+	/// initializes the 
+	static void initialize(void);
+
+	static void shutdown(void);
+
+
 	// Information.
 
 	/// Returns what data the filter requires as input.
@@ -150,7 +156,6 @@ namespace Dijon
 	};
 
     protected:
-	static unsigned int m_initialized;
 	ParserState *m_pState;
 	std::string m_error;
 	bool m_skipText;

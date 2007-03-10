@@ -24,6 +24,12 @@
 #include <set>
 
 #include "Filter.h"
+#ifndef _DYNAMIC_DIJON_HTMLFILTER
+#include "HtmlFilter.h"
+#endif
+#ifndef _DYNAMIC_DIJON_XMLFILTER
+#include "XmlFilter.h"
+#endif
 
 namespace Dijon
 {
