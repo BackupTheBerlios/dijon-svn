@@ -67,6 +67,7 @@ Filter *get_filter(const std::string &mime_type)
 
 GMimeMboxFilter::GMimeMboxFilter(const string &mime_type) :
 	Filter(mime_type),
+	m_returnHeaders(false),
 	m_unlinkWhenDone(false),
 	m_fd(-1),
 	m_pGMimeMboxStream(NULL),
@@ -105,7 +106,20 @@ bool GMimeMboxFilter::set_property(Properties prop_name, const string &prop_valu
 	{
 		m_defaultCharset = prop_value;
 
-		return false;
+		return true;
+	}
+	else if (prop_name == OPERATING_MODE)
+	{
+		if (prop_value == "view")
+		{
+			m_returnHeaders = true;
+		}
+		else
+		{
+			m_returnHeaders = false;
+		}
+
+		return true;
 	}
 
 	return false;
@@ -484,8 +498,22 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 				pPart = extractPart(pMimePart, contentType, partLength);
 				if (pPart != NULL)
 				{
+					string content;
 					string location("mailbox://");
 					char posStr[128];
+
+					if (m_returnHeaders == true)
+					{
+						char *pHeaders = g_mime_message_get_headers(m_pMimeMessage);
+
+						if (pHeaders != NULL)
+						{
+							content = pHeaders;
+							content += "\n";
+							free(pHeaders);
+						}
+					}
+					content += string(pPart, (unsigned int)partLength);
 
 					// FIXME: use the same scheme as Mozilla
 					location += m_fileName;
@@ -495,7 +523,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 					m_metaData["title"] = msgSubject;
 					m_metaData["uri"] = location;
 					m_metaData["mimetype"] = contentType;
-					m_metaData["content"] = string(pPart, (unsigned int)partLength);
+					m_metaData["content"] = content;
 					m_metaData["creationdate"] = m_messageDate;
 					snprintf(posStr, 128, "%u", partLength);
 					m_metaData["size"] = posStr;
