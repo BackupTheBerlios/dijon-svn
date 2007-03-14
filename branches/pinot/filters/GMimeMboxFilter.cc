@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -502,7 +503,8 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 					string location("mailbox://");
 					char posStr[128];
 
-					if (m_returnHeaders == true)
+					if ((m_returnHeaders == true) &&
+						(strcasecmp(contentType.c_str(), "text/plain") == 0))
 					{
 						char *pHeaders = g_mime_message_get_headers(m_pMimeMessage);
 
@@ -527,7 +529,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 					m_metaData["creationdate"] = m_messageDate;
 					snprintf(posStr, 128, "%u", partLength);
 					m_metaData["size"] = posStr;
-					snprintf(posStr, 128, "o=%u&p=%d", m_messageStart, max(m_partNum, 0));
+					snprintf(posStr, 128, "o=%u&p=%d", m_messageStart, max(m_partNum - 1, 0));
 					m_metaData["ipath"] = posStr;
 #ifdef DEBUG
 					cout << "GMimeMboxFilter::extractMessage: message location is " << location
