@@ -205,6 +205,11 @@ is optional.
   <arguments>-qlp %s</arguments>
 </filter>
 <filter>
+  <mimetype>application/x-deb</mimetype>
+  <command>dpkg</command>
+  <arguments>-c %s</arguments>
+</filter>
+<filter>
   <mimetype>application/x-tar</mimetype>
   <command>tar</command>
   <arguments>tvf %s</arguments>
