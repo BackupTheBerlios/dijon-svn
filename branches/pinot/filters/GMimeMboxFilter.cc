@@ -504,7 +504,8 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 					char posStr[128];
 
 					if ((m_returnHeaders == true) &&
-						(strcasecmp(contentType.c_str(), "text/plain") == 0))
+						(contentType.length() >= 10) &&
+						(strncasecmp(contentType.c_str(), "text/plain", 10) == 0))
 					{
 						char *pHeaders = g_mime_message_get_headers(m_pMimeMessage);
 
