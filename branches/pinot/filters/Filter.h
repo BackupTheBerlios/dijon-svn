@@ -51,9 +51,9 @@ namespace Dijon
     {
     public:
 	/// Builds an empty filter.
-	Filter(const std::string &mime_type) : m_mimeType(mime_type) {}
+	Filter(const std::string &mime_type);
 	/// Destroys the filter.
-	virtual ~Filter() {}
+	virtual ~Filter();
 
 
 	// Enumerations.
@@ -74,10 +74,7 @@ namespace Dijon
 	// Information.
 
 	/// Returns the MIME type handled by the filter.
-	std::string get_mime_type(void) const
-	{
-		return m_mimeType;
-	}
+	std::string get_mime_type(void) const;
 
 	/// Returns what data the filter requires as input.
 	virtual bool is_data_input_ok(DataInput input) const = 0;
@@ -110,7 +107,7 @@ namespace Dijon
 	 * Returns false if this input is not supported or an error occured.
 	 */
 	virtual bool set_document_file(const std::string &file_path,
-		bool unlink_when_done = false) = 0;
+		bool unlink_when_done = false);
 
 	/** (Re)initializes the filter with the given URI.
 	 * Call next_document() to position the filter onto the first document.
@@ -158,22 +155,30 @@ namespace Dijon
 	 * that the client application can pass the nested document's content
 	 * to another filter that supports this particular type.
 	 */
-	const std::map<std::string, std::string> &get_meta_data(void) const
-	{
-	    return m_metaData;
-	}
+	const std::map<std::string, std::string> &get_meta_data(void) const;
 
     protected:
 	/// The MIME type handled by the filter.
 	std::string m_mimeType;
 	/// Metadata dictionary.
 	std::map<std::string, std::string> m_metaData;
+	/// The name of the input file, if any.
+	std::string m_filePath;
+
+	/// Rewinds the filter.
+	virtual void rewind(void);
 
     private:
+	/// Whether the input file should be deleted when done.
+	bool m_deleteInputFile;
+
 	/// Filter objects cannot be copied.
 	Filter(const Filter &other);
 	/// Filter objects cannot be copied.
 	Filter& operator=(const Filter& other);
+
+	/// Deletes the input file.
+	void deleteInputFile(void);
 
     };
 }
