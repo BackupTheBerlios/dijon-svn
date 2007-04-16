@@ -103,7 +103,7 @@ namespace Dijon
     protected:
 	bool m_doneWithDocument;
 
-	void rewind(void);
+	virtual void rewind(void);
 
 	bool parse_xml(const std::string &xml_doc);
 

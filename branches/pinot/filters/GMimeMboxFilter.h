@@ -107,9 +107,7 @@ namespace Dijon
 
     protected:
 	std::string m_defaultCharset;
-	std::string m_fileName;
 	bool m_returnHeaders;
-	bool m_unlinkWhenDone;
 	int m_fd;
 	GMimeStream *m_pGMimeMboxStream;
 	GMimeParser *m_pParser;

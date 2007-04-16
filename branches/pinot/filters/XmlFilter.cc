@@ -163,7 +163,8 @@ string XmlFilter::get_error(void) const
 
 void XmlFilter::rewind(void)
 {
-	m_metaData.clear();
+	Filter::rewind();
+
 	m_doneWithDocument = false;
 }
 

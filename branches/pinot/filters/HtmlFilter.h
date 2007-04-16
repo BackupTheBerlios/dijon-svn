@@ -161,7 +161,7 @@ namespace Dijon
 	bool m_skipText;
 	bool m_findAbstract;
 
-	void rewind(void);
+	virtual void rewind(void);
 
 	bool parse_html(const std::string &html_doc);
 

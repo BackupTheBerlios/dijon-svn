@@ -692,13 +692,13 @@ string HtmlFilter::get_error(void) const
 
 void HtmlFilter::rewind(void)
 {
+	Filter::rewind();
+
 	if (m_pState != NULL)
 	{
 		delete m_pState;
 		m_pState = NULL;
 	}
-
-	m_metaData.clear();
 }
 
 bool HtmlFilter::parse_html(const string &html_doc)

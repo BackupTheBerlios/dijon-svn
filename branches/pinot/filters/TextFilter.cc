@@ -131,6 +131,7 @@ string TextFilter::get_error(void) const
 
 void TextFilter::rewind(void)
 {
-	m_metaData.clear();
+	Filter::rewind();
+
 	m_doneWithDocument = false;
 }

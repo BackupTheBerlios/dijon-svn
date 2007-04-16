@@ -103,7 +103,7 @@ namespace Dijon
     protected:
 	bool m_doneWithDocument;
 
-	void rewind(void);
+	virtual void rewind(void);
 
     private:
 	/// TextFilter objects cannot be copied.

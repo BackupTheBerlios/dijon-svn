@@ -101,11 +101,9 @@ namespace Dijon
 	virtual std::string get_error(void) const;
 
     protected:
-	std::string m_filePath;
-	bool m_unlinkWhenDone;
 	bool m_parseDocument;
 
-	void rewind(void);
+	virtual void rewind(void);
 
     private:
 	/// TagLibMusicFilter objects cannot be copied.

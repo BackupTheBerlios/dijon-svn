@@ -70,8 +70,7 @@ map<string, string> ExternalFilter::m_outputsByType;
 
 ExternalFilter::ExternalFilter(const string &mime_type) :
 	Filter(mime_type),
-	m_doneWithDocument(false),
-	m_unlinkWhenDone(false)
+	m_doneWithDocument(false)
 {
 }
 
@@ -103,20 +102,6 @@ bool ExternalFilter::set_document_data(const char *data_ptr, unsigned int data_l
 bool ExternalFilter::set_document_string(const string &data_str)
 {
 	return false;
-}
-
-bool ExternalFilter::set_document_file(const string &file_path, bool unlink_when_done)
-{
-	if (file_path.empty() == true)
-	{
-		return false;
-	}
-
-	rewind();
-	m_filePath = file_path;
-	m_unlinkWhenDone = unlink_when_done;
-
-	return true;
 }
 
 bool ExternalFilter::set_document_uri(const string &uri)
@@ -192,43 +177,57 @@ bool ExternalFilter::next_document(void)
 
 			if (fstat(outFd, &outStats) == 0)
 			{
-				// Grab the output
-				char *fileBuffer = new char[outStats.st_size + 1];
-				if (fileBuffer != NULL)
+				if (outStats.st_size == 0)
 				{
-					int bytesRead = read(outFd, (void*)fileBuffer, outStats.st_size);
-					if (bytesRead > 0)
+					// Obviously something went haywire but be graceful
+					m_metaData["content"] = "";
+					m_metaData["size"] = "0";
+					gotOutput = true;
+				}
+				else
+				{
+					// Grab the output
+					char *fileBuffer = new char[outStats.st_size + 1];
+					if (fileBuffer != NULL)
 					{
-						char numStr[64];
-
-						fileBuffer[bytesRead] = '\0';
-
-						m_metaData["uri"] = "file://" + m_filePath;
-						// What's the output type ?
-						map<string, string>::const_iterator outputIter = m_outputsByType.find(m_mimeType);
-						if (outputIter == m_outputsByType.end())
+						int bytesRead = read(outFd, (void*)fileBuffer, outStats.st_size);
+						if (bytesRead > 0)
 						{
-							// Assume it's plain text if undefined
-							m_metaData["mimetype"] = "text/plain";
+							char numStr[64];
+
+							fileBuffer[bytesRead] = '\0';
+
+							m_metaData["content"] = string(fileBuffer, (unsigned int)bytesRead);
+							snprintf(numStr, 64, "%d", outStats.st_size);
+							m_metaData["size"] = numStr;
+							gotOutput = true;
 						}
-						else
-						{
-							m_metaData["mimetype"] = outputIter->second;
-						}
-						m_metaData["content"] = string(fileBuffer, (unsigned int)bytesRead);
-						snprintf(numStr, 64, "%d", outStats.st_size);
-						m_metaData["size"] = numStr;
-						gotOutput = true;
+#ifdef DEBUG
+						else cout << "ExternalFilter::next_document: couldn't read output" << endl;
+#endif
+
+						delete[] fileBuffer;
 					}
 #ifdef DEBUG
-					else cout << "ExternalFilter::next_document: couldn't read output" << endl;
+					else cout << "ExternalFilter::next_document: couldn't allocate output" << endl;
 #endif
-
-					delete[] fileBuffer;
 				}
-#ifdef DEBUG
-				else cout << "ExternalFilter::next_document: couldn't allocate output" << endl;
-#endif
+
+				if (gotOutput == true)
+				{
+					m_metaData["uri"] = "file://" + m_filePath;
+					// What's the output type ?
+					map<string, string>::const_iterator outputIter = m_outputsByType.find(m_mimeType);
+					if (outputIter == m_outputsByType.end())
+					{
+						// Assume it's plain text if undefined
+						m_metaData["mimetype"] = "text/plain";
+					}
+					else
+					{
+						m_metaData["mimetype"] = outputIter->second;
+					}
+				}
 			}
 #ifdef DEBUG
 			else cout << "ExternalFilter::next_document: couldn't stat output" << endl;
@@ -369,14 +368,8 @@ void ExternalFilter::initialize(const std::string &config_file, set<std::string>
 
 void ExternalFilter::rewind(void)
 {
-	m_metaData.clear();
+	Filter::rewind();
 	m_doneWithDocument = false;
-	if (m_unlinkWhenDone == true)
-	{
-		unlink(m_filePath.c_str());
-		m_unlinkWhenDone = false;
-	}
-	m_filePath.clear();
 }
 
 string ExternalFilter::escapeQuotes(const string &file_name)

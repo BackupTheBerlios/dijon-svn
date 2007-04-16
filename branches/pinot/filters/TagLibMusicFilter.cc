@@ -61,7 +61,6 @@ Filter *get_filter(const std::string &mime_type)
 
 TagLibMusicFilter::TagLibMusicFilter(const string &mime_type) :
 	Filter(mime_type),
-	m_unlinkWhenDone(false),
 	m_parseDocument(false)
 {
 }
@@ -100,18 +99,14 @@ bool TagLibMusicFilter::set_document_string(const string &data_str)
 
 bool TagLibMusicFilter::set_document_file(const string &file_path, bool unlink_when_done)
 {
-	if (file_path.empty() == true)
+	if (Filter::set_document_file(file_path, unlink_when_done) == true)
 	{
-		return false;
+		m_parseDocument = true;
+
+		return true;
 	}
 
-	rewind();
-
-	m_filePath = file_path;
-	m_unlinkWhenDone = unlink_when_done;
-	m_parseDocument = true;
-
-	return true;
+	return false;
 }
 
 bool TagLibMusicFilter::set_document_uri(const string &uri)
@@ -185,12 +180,7 @@ string TagLibMusicFilter::get_error(void) const
 
 void TagLibMusicFilter::rewind(void)
 {
-	m_metaData.clear();
-	if (m_unlinkWhenDone == true)
-	{
-		unlink(m_filePath.c_str());
-		m_unlinkWhenDone = false;
-	}
-	m_filePath.clear();
+	Filter::rewind();
+
 	m_parseDocument = false;
 }

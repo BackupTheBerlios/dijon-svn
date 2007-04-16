@@ -69,7 +69,6 @@ Filter *get_filter(const std::string &mime_type)
 GMimeMboxFilter::GMimeMboxFilter(const string &mime_type) :
 	Filter(mime_type),
 	m_returnHeaders(false),
-	m_unlinkWhenDone(false),
 	m_fd(-1),
 	m_pGMimeMboxStream(NULL),
 	m_pParser(NULL),
@@ -138,10 +137,10 @@ bool GMimeMboxFilter::set_document_string(const string &data_str)
 
 bool GMimeMboxFilter::set_document_file(const string &file_path, bool unlink_when_done)
 {
+	Filter::set_document_file(file_path, unlink_when_done);
+
 	// Close/free whatever was opened/allocated on a previous call to set_document()
 	finalize(true);
-	m_fileName = file_path;
-	m_unlinkWhenDone = unlink_when_done;
 	m_partsCount = m_partNum = -1;
 	m_messageStart = 0;
 	m_messageDate.clear();
@@ -187,7 +186,7 @@ bool GMimeMboxFilter::skip_to_document(const string &ipath)
 		if (m_messageStart > 0)
 		{
 			// Reset
-			return set_document_file(m_fileName);
+			return set_document_file(m_filePath);
 		}
 
 		return true;
@@ -221,7 +220,7 @@ string GMimeMboxFilter::get_error(void) const
 bool GMimeMboxFilter::initialize(void)
 {
 	// Open the mbox file
-	m_fd = open(m_fileName.c_str(), O_RDONLY);
+	m_fd = open(m_filePath.c_str(), O_RDONLY);
 	if (m_fd < 0)
 	{
 		return false;
@@ -294,16 +293,10 @@ void GMimeMboxFilter::finalize(bool fullReset)
 		close(m_fd);
 		m_fd = -1;
 	}
-	m_metaData.clear();
 
 	if (fullReset == true)
 	{
-		if (m_unlinkWhenDone == true)
-		{
-			unlink(m_fileName.c_str());
-			m_unlinkWhenDone = false;
-		}
-		m_fileName.clear();
+		rewind();
 	}
 }
 
@@ -519,7 +512,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 					content += string(pPart, (unsigned int)partLength);
 
 					// FIXME: use the same scheme as Mozilla
-					location += m_fileName;
+					location += m_filePath;
 
 					// New document
 					m_metaData.clear();
