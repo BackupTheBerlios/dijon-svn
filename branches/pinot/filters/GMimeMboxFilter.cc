@@ -137,14 +137,14 @@ bool GMimeMboxFilter::set_document_string(const string &data_str)
 
 bool GMimeMboxFilter::set_document_file(const string &file_path, bool unlink_when_done)
 {
-	Filter::set_document_file(file_path, unlink_when_done);
-
 	// Close/free whatever was opened/allocated on a previous call to set_document()
 	finalize(true);
 	m_partsCount = m_partNum = -1;
 	m_messageStart = 0;
 	m_messageDate.clear();
 	m_foundDocument = false;
+
+	Filter::set_document_file(file_path, unlink_when_done);
 
 	if (initialize() == true)
 	{
@@ -223,6 +223,9 @@ bool GMimeMboxFilter::initialize(void)
 	m_fd = open(m_filePath.c_str(), O_RDONLY);
 	if (m_fd < 0)
 	{
+#ifdef DEBUG
+		cout << "GMimeMboxFilter::initialize: couldn't open " << m_filePath << endl;
+#endif
 		return false;
 	}
 
@@ -266,6 +269,9 @@ bool GMimeMboxFilter::initialize(void)
 
 		return true;
 	}
+#ifdef DEBUG
+	cout << "GMimeMboxFilter::initialize: couldn't create new parser" << endl;
+#endif
 
 	return false;
 }
