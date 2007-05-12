@@ -21,6 +21,7 @@
 #include <tfile.h>
 #include <tag.h>
 
+#include "Url.h"
 #include "TagLibMusicFilter.h"
 
 using std::string;
@@ -129,6 +130,7 @@ bool TagLibMusicFilter::next_document(void)
 		if (fileRef.isNull() == false)
 		{
 			TagLib::Tag *pTag = fileRef.tag();
+
 			if ((pTag != NULL) &&
 				(pTag->isEmpty() == false))
 			{
@@ -154,9 +156,20 @@ bool TagLibMusicFilter::next_document(void)
 				m_metaData["mimetype"] = "text/plain";
 				m_metaData["charset"] = "utf-8";
 				m_metaData["author"] = pTag->artist().toCString(true);
-
-				return true;
 			}
+			else
+			{
+				Url urlObj(string("file://") + m_filePath);
+
+				// This file doesn't have any tag
+				m_metaData["content"] = "";
+				m_metaData["title"] = urlObj.getFile();
+				m_metaData["ipath"] = "";
+				m_metaData["mimetype"] = "text/plain";
+				m_metaData["charset"] = "utf-8";
+			}
+
+			return true;
 		}
 	}
 

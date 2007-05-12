@@ -146,11 +146,9 @@ bool GMimeMboxFilter::set_document_file(const string &file_path, bool unlink_whe
 
 	Filter::set_document_file(file_path, unlink_when_done);
 
-	if (initialize() == true)
-	{
-		// Extract the first message
-		m_foundDocument = extractMessage("");
-	}
+	// Assume there are documents if initialization is successful
+	// but don't actually retrieve anything, until next or skip is called
+	m_foundDocument = initialize();
 
 	return m_foundDocument;
 }
