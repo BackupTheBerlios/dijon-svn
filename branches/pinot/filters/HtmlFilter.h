@@ -168,7 +168,7 @@ namespace Dijon
     private:
 	/// HtmlFilter objects cannot be copied.
 	HtmlFilter(const HtmlFilter &other);
-	/// Filter objects cannot be copied.
+	/// HtmlFilter objects cannot be copied.
 	HtmlFilter& operator=(const HtmlFilter& other);
 
     };

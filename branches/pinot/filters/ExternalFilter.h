@@ -111,7 +111,7 @@ namespace Dijon
     private:
 	/// ExternalFilter objects cannot be copied.
 	ExternalFilter(const ExternalFilter &other);
-	/// Filter objects cannot be copied.
+	/// ExternalFilter objects cannot be copied.
 	ExternalFilter& operator=(const ExternalFilter& other);
 
     };

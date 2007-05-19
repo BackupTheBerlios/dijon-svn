@@ -129,7 +129,7 @@ namespace Dijon
     private:
 	/// GMimeMboxFilter objects cannot be copied.
 	GMimeMboxFilter(const GMimeMboxFilter &other);
-	/// Filter objects cannot be copied.
+	/// GMimeMboxFilter objects cannot be copied.
 	GMimeMboxFilter& operator=(const GMimeMboxFilter& other);
 
     };

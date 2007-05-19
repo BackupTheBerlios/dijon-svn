@@ -108,7 +108,7 @@ namespace Dijon
     private:
 	/// TextFilter objects cannot be copied.
 	TextFilter(const TextFilter &other);
-	/// Filter objects cannot be copied.
+	/// TextFilter objects cannot be copied.
 	TextFilter& operator=(const TextFilter& other);
 
     };

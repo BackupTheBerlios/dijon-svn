@@ -108,7 +108,7 @@ namespace Dijon
     private:
 	/// TagLibMusicFilter objects cannot be copied.
 	TagLibMusicFilter(const TagLibMusicFilter &other);
-	/// Filter objects cannot be copied.
+	/// TagLibMusicFilter objects cannot be copied.
 	TagLibMusicFilter& operator=(const TagLibMusicFilter& other);
 
     };

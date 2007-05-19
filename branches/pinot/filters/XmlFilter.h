@@ -110,7 +110,7 @@ namespace Dijon
     private:
 	/// XmlFilter objects cannot be copied.
 	XmlFilter(const XmlFilter &other);
-	/// Filter objects cannot be copied.
+	/// XmlFilter objects cannot be copied.
 	XmlFilter& operator=(const XmlFilter& other);
 
     };
