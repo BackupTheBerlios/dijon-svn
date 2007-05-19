@@ -21,6 +21,7 @@
 
 #include <string>
 #include <set>
+#include <xapian.h>
 
 #include "XesamQLParser.h"
 
@@ -31,7 +32,9 @@ namespace Dijon
     {
     public:
 	/// Builds a query builder for Xapian::Query.
-	XapianQueryBuilder();
+	XapianQueryBuilder(Xapian::Database *pIndex,
+		const std::string &stemLanguage,
+		bool followOperators);
 	virtual ~XapianQueryBuilder();
 
 	virtual void on_userQuery(const char *value);
@@ -40,6 +43,14 @@ namespace Dijon
 
 	virtual void on_selection(SelectionType selection, const std::string &property_name,
 		SimpleType property_type, const std::set<std::string> &property_values);
+
+	Xapian::Query get_query(void) const;
+
+    public:
+	Xapian::QueryParser m_queryParser;
+	Xapian::Stem m_stemmer;
+	Xapian::Query m_fullQuery;
+	bool m_firstSelection;
 
     private:
 	/// XapianQueryBuilder objects cannot be copied.

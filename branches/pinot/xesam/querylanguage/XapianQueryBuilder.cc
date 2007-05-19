@@ -18,6 +18,7 @@
 
 #include <iostream>
 
+#include "StringManip.h"
 #include "XapianQueryBuilder.h"
 
 using std::string;
@@ -28,9 +29,50 @@ using std::endl;
 
 using namespace Dijon;
 
-XapianQueryBuilder::XapianQueryBuilder() :
-	XesamQueryBuilder()
+XapianQueryBuilder::XapianQueryBuilder(Xapian::Database *pIndex,
+        const string &stemLanguage, bool followOperators) :
+	XesamQueryBuilder(),
+	m_queryParser(),
+	m_stemmer(),
+	m_fullQuery(),
+	m_firstSelection(true)
 {
+	// Set things up
+	if (stemLanguage.empty() == false)
+	{
+		m_stemmer = Xapian::Stem(StringManip::toLowerCase(stemLanguage));
+		m_queryParser.set_stemming_strategy(Xapian::QueryParser::STEM_ALL);
+		m_queryParser.set_stemmer(m_stemmer);
+	}
+	else
+	{
+		m_queryParser.set_stemming_strategy(Xapian::QueryParser::STEM_NONE);
+	}
+	if (followOperators == true)
+	{
+		m_queryParser.set_default_op(Xapian::Query::OP_AND);
+	}
+	else
+	{
+		m_queryParser.set_default_op(Xapian::Query::OP_OR);
+	}
+
+	if (pIndex != NULL)
+	{
+		// The database is required for wildcards
+		m_queryParser.set_database(*pIndex);
+	}
+	// ...including prefixes
+	// X prefixes should always include a colon
+	m_queryParser.add_boolean_prefix("site", "H");
+	m_queryParser.add_boolean_prefix("file", "P");
+	m_queryParser.add_boolean_prefix("ext", "XEXT:");
+	m_queryParser.add_boolean_prefix("title", "S");
+	m_queryParser.add_boolean_prefix("url", "U");
+	m_queryParser.add_boolean_prefix("dir", "XDIR:");
+	m_queryParser.add_boolean_prefix("lang", "L");
+	m_queryParser.add_boolean_prefix("type", "T");
+	m_queryParser.add_boolean_prefix("label", "XLABEL:");
 }
 
 XapianQueryBuilder::~XapianQueryBuilder()
@@ -39,38 +81,142 @@ XapianQueryBuilder::~XapianQueryBuilder()
 
 void XapianQueryBuilder::on_userQuery(const char *value)
 {
+#ifdef DEBUG
 	cout << "XapianQueryBuilder::on_userQuery: called";
 	if (value != NULL)
 	{
 		cout << " with " << value;
 	}
 	cout << endl;
+#endif
 }
 
 void XapianQueryBuilder::on_query(const char *type)
 {
+#ifdef DEBUG
 	cout << "XapianQueryBuilder::on_query: called";
 	if (type != NULL)
 	{
 		cout << " with " << type;
 	}
 	cout << endl;
+#endif
 }
 
 void XapianQueryBuilder::on_selection(SelectionType selection, const string &property_name,
 	SimpleType property_type, const set<string> &property_values)
 {
+#ifdef DEBUG
 	cout << "XapianQueryBuilder::on_selection: called ";
 	if (property_name.empty() == true)
 	{
 		cout << "on all properties";
 	}
 	else cout << "on property " << property_name;
-	for (set<string>::iterator valueIter = property_values.begin(); valueIter != property_values.end(); ++valueIter)
+#endif
+
+	if ((selection == None) ||
+		(selection == RegExp))
 	{
-		cout << " " << *valueIter;
+		// Ignore those selection types
+		return;
 	}
+
+	if ((selection == Equals) ||
+		(selection == Contains) ||
+		(selection == FullText) ||
+		(selection == InSet) ||
+		(selection == Proximity))
+	{
+#ifdef DEBUG
+		cout << "XapianQueryBuilder::on_selection: performing full text search";
+#endif
+	}
+	else
+	{
+		// The rest deals with numerical values
+		// FIXME: handle them
+#ifdef DEBUG
+		cout << "XapianQueryBuilder::on_selection: no support for numerical values yet";
+#endif
+		return;
+	}
+
+#ifdef DEBUG
+	cout << "XapianQueryBuilder::on_selection: property values are ";
+#endif
+	Xapian::Query parsedQuery;
+	bool firstValue = true;
+
+	for (set<string>::iterator valueIter = property_values.begin();
+		valueIter != property_values.end(); ++valueIter)
+	{
+		string propertyValue(*valueIter);
+
+		// Let the QueryParser do the heavy lifting
+		// FIXME: we don't actually need to activate all these flags
+		Xapian::Query thisQuery = m_queryParser.parse_query(propertyValue,
+			Xapian::QueryParser::FLAG_BOOLEAN|Xapian::QueryParser::FLAG_PHRASE|
+			Xapian::QueryParser::FLAG_LOVEHATE|Xapian::QueryParser::FLAG_BOOLEAN_ANY_CASE|
+#if XAPIAN_MAJOR_VERSION==0
+			Xapian::QueryParser::FLAG_WILDCARD
+#else
+			Xapian::QueryParser::FLAG_WILDCARD|Xapian::QueryParser::FLAG_PURE_NOT
+#endif
+			);
+		if (firstValue == true)
+		{
+			parsedQuery = thisQuery;
+			firstValue = false;
+		}
+		else
+		{
+			// Only InSet will have multiple values, and they should be OR'ed
+			parsedQuery = Xapian::Query(Xapian::Query::OP_OR,
+				parsedQuery, thisQuery);
+		}
+#ifdef DEBUG
+		cout << " " << *valueIter;
+#endif
+	}
+#ifdef DEBUG
  	cout << endl;
+#endif
+
+#ifdef DEBUG
 	cout << "XapianQueryBuilder::on_selection: collector is " << m_collector.m_collector << endl;
+#endif
+	if (m_firstSelection == true)
+	{
+		m_fullQuery = parsedQuery;
+		m_firstSelection = false;
+	}
+	else
+	{
+		Xapian::Query::op queryOp = Xapian::Query::OP_AND;
+
+		if (m_collector.m_collector == And)
+		{
+			if (m_collector.m_negate == true)
+			{
+				queryOp = Xapian::Query::OP_AND_NOT;
+			}
+		}
+		else
+		{
+			queryOp = Xapian::Query::OP_OR;
+		}
+
+		Xapian::Query fullerQuery = Xapian::Query(queryOp, m_fullQuery, parsedQuery);
+		m_fullQuery = fullerQuery;
+	}
+#ifdef DEBUG
+	cout << "XapianQueryBuilder::on_selection: query now " << m_fullQuery.get_description() << endl;
+#endif
+}
+
+Xapian::Query XapianQueryBuilder::get_query(void) const
+{
+	return m_fullQuery;
 }
 

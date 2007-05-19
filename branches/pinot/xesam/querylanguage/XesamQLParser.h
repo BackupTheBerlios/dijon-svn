@@ -87,7 +87,6 @@ namespace Dijon
     public:
 	/// Builds a parser for the Xesam Query Language.
 	XesamQLParser();
-	/// Destroys the filter.
 	virtual ~XesamQLParser();
 
 	bool parse(const std::string &xesam_query, bool is_file,
