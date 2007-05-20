@@ -79,10 +79,10 @@ XapianQueryBuilder::~XapianQueryBuilder()
 {
 }
 
-void XapianQueryBuilder::on_userQuery(const char *value)
+void XapianQueryBuilder::on_user_query(const char *value)
 {
 #ifdef DEBUG
-	cout << "XapianQueryBuilder::on_userQuery: called";
+	cout << "XapianQueryBuilder::on_user_query: called";
 	if (value != NULL)
 	{
 		cout << " with " << value;
@@ -103,16 +103,15 @@ void XapianQueryBuilder::on_query(const char *type)
 #endif
 }
 
-void XapianQueryBuilder::on_selection(SelectionType selection, const string &property_name,
-	SimpleType property_type, const set<string> &property_values)
+void XapianQueryBuilder::on_selection(SelectionType selection,
+	const set<string> &property_names,
+	const set<string> &property_values,
+	SimpleType property_type,
+	const Modifiers &modifiers)
 {
 #ifdef DEBUG
-	cout << "XapianQueryBuilder::on_selection: called ";
-	if (property_name.empty() == true)
-	{
-		cout << "on all properties";
-	}
-	else cout << "on property " << property_name;
+	cout << "XapianQueryBuilder::on_selection: called on "
+		<< property_names.size() << " properties" << endl;
 #endif
 
 	if ((selection == None) ||

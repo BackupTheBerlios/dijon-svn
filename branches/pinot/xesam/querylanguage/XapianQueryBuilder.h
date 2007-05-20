@@ -37,12 +37,15 @@ namespace Dijon
 		bool followOperators);
 	virtual ~XapianQueryBuilder();
 
-	virtual void on_userQuery(const char *value);
+	virtual void on_user_query(const char *value);
 
 	virtual void on_query(const char *type);
 
-	virtual void on_selection(SelectionType selection, const std::string &property_name,
-		SimpleType property_type, const std::set<std::string> &property_values);
+	virtual void on_selection(SelectionType selection,
+		const std::set<std::string> &property_names,
+		const std::set<std::string> &property_values,
+		SimpleType property_type,
+		const Modifiers &modifiers);
 
 	Xapian::Query get_query(void) const;
 

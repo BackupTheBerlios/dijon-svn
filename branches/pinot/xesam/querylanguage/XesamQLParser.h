@@ -28,16 +28,28 @@ namespace Dijon
 {
     typedef enum { And, Or } CollectorType;
 
-    typedef enum { None, Equals, Contains, LessThan, LessThanEquals, GreaterThan,
-	GreaterThanEquals, StartsWith, InSet, FullText, RegExp, Proximity } SelectionType;
-
-    typedef enum { String, Phrase, Integer, Date, Boolean, Float } SimpleType;
-
     struct Collector
     {
 	CollectorType m_collector;
 	bool m_negate;
 	float m_boost;
+    };
+
+    typedef enum { None, Equals, Contains, LessThan, LessThanEquals, GreaterThan,
+	GreaterThanEquals, StartsWith, InSet, FullText, RegExp, Proximity } SelectionType;
+
+    typedef enum { String, Integer, Date, Boolean, Float } SimpleType;
+
+    struct Modifiers
+    {
+	bool m_phrase;
+	bool m_caseSensitive;
+	bool m_diacriticSensitive;
+	int m_slack;
+	bool m_ordered;
+	bool m_enableStemming;
+	std::string m_language;
+	float m_fuzzy;
     };
 
     /// Interface implemented by all query builders.
@@ -63,12 +75,15 @@ namespace Dijon
 		m_collector.m_boost = collector.m_boost;
 	};
 
-	virtual void on_userQuery(const char *value) = 0;
+	virtual void on_user_query(const char *value) = 0;
 
 	virtual void on_query(const char *type) = 0;
 
-	virtual void on_selection(SelectionType selection, const std::string &property_name,
-		SimpleType property_type, const std::set<std::string> &property_values) = 0;
+	virtual void on_selection(SelectionType selection,
+		const std::set<std::string> &property_name,
+		const std::set<std::string> &property_values,
+		SimpleType property_type,
+		const Modifiers &modifiers) = 0;
 
     protected:
 	Collector m_collector;
@@ -89,16 +104,23 @@ namespace Dijon
 	XesamQLParser();
 	virtual ~XesamQLParser();
 
-	bool parse(const std::string &xesam_query, bool is_file,
+	bool parse(const std::string &xesam_query,
+		XesamQueryBuilder &query_builder);
+
+	bool parse_file(const std::string &xesam_query_file,
 		XesamQueryBuilder &query_builder);
 
     protected:
 	int m_depth;
 	std::map<int, Collector> m_collectorsByDepth;
 	SelectionType m_selection;
-	std::string m_propertyName;
+	std::set<std::string> m_propertyNames;
 	std::set<std::string> m_propertyValues;
 	SimpleType m_propertyType;
+	Modifiers m_modifiers;
+
+	bool parse_input(xmlParserInputBufferPtr,
+		XesamQueryBuilder &query_builder);
 
 	bool process_node(xmlTextReaderPtr reader,
 		XesamQueryBuilder &query_builder);
@@ -111,6 +133,8 @@ namespace Dijon
 		XesamQueryBuilder &query_builder);
 
 	bool is_selection_type(xmlChar *local_name);
+
+	void get_modifiers(xmlTextReaderPtr reader);
 
     private:
 	/// XesamQLParser objects cannot be copied.

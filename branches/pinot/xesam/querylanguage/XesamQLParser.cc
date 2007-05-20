@@ -31,7 +31,8 @@ using namespace Dijon;
 
 XesamQLParser::XesamQLParser() :
 	m_depth(0),
-	m_selection(None)
+	m_selection(None),
+	m_propertyType(String)
 {
 }
 
@@ -39,40 +40,73 @@ XesamQLParser::~XesamQLParser()
 {
 }
 
-bool XesamQLParser::parse(const string &xesam_query, bool is_file,
+bool XesamQLParser::parse(const string &xesam_query,
 	XesamQueryBuilder &query_builder)
 {
-	xmlParserInputBufferPtr pBuffer = NULL;
 	bool parsedQuery = true;
 
 	// Initialize the library and check for potential ABI mismatches
 	LIBXML_TEST_VERSION
 
 	// FIXME: encoding may not be UTF-8
-	if (is_file == true)
-	{
-		pBuffer = xmlParserInputBufferCreateFilename(xesam_query.c_str(),
-			XML_CHAR_ENCODING_UTF8);
-	}
-	else
-	{
-		pBuffer = xmlParserInputBufferCreateMem(xesam_query.c_str(),
-			xesam_query.length(), XML_CHAR_ENCODING_UTF8);
-	}
+	xmlParserInputBufferPtr pBuffer = xmlParserInputBufferCreateMem(xesam_query.c_str(),
+		xesam_query.length(), XML_CHAR_ENCODING_UTF8);
 	if (pBuffer == NULL)
 	{
 		cerr << "XesamQLParser: couldn't create input buffer" << endl;
 		return false;
 	}
 
-	xmlTextReaderPtr pReader = xmlNewTextReader(pBuffer, NULL);
+	parsedQuery = parse_input(pBuffer, query_builder);
+
+	xmlFreeParserInputBuffer(pBuffer);
+
+	return parsedQuery;
+}
+
+bool XesamQLParser::parse_file(const string &xesam_query_file,
+	XesamQueryBuilder &query_builder)
+{
+	bool parsedQuery = true;
+
+	// Initialize the library and check for potential ABI mismatches
+	LIBXML_TEST_VERSION
+
+	// FIXME: encoding may not be UTF-8
+	xmlParserInputBufferPtr pBuffer = xmlParserInputBufferCreateFilename(xesam_query_file.c_str(),
+		XML_CHAR_ENCODING_UTF8);
+	if (pBuffer == NULL)
+	{
+		cerr << "XesamQLParser: couldn't create input buffer" << endl;
+		return false;
+	}
+
+	parsedQuery = parse_input(pBuffer, query_builder);
+
+	xmlFreeParserInputBuffer(pBuffer);
+
+	return parsedQuery;
+}
+
+bool XesamQLParser::parse_input(xmlParserInputBufferPtr buffer,
+	XesamQueryBuilder &query_builder)
+{
+	bool parsedQuery = true;
+
+	if (buffer == NULL)
+	{
+		cerr << "XesamQLParser: couldn't create input buffer" << endl;
+		return false;
+	}
+
+	xmlTextReaderPtr pReader = xmlNewTextReader(buffer, NULL);
 	if (pReader != NULL)
 	{
 		// Reset everything
 		m_depth = 0;
 		m_collectorsByDepth.clear();
 		m_selection = None;
-		m_propertyName.clear();
+		m_propertyNames.clear();
 		m_propertyValues.clear();
 		m_propertyType = String;
 
@@ -98,8 +132,6 @@ bool XesamQLParser::parse(const string &xesam_query, bool is_file,
 		}
 	}
 
-	xmlFreeParserInputBuffer(pBuffer);
-
 	return parsedQuery;
 }
 
@@ -120,8 +152,11 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			if (m_selection != None)
 			{
 				// Fire up a selection event
-				query_builder.on_selection(m_selection, m_propertyName,
-					m_propertyType, m_propertyValues);
+				query_builder.on_selection(m_selection,
+					m_propertyNames,
+					m_propertyValues,
+					m_propertyType,
+					m_modifiers);
 
 				m_selection = None;
 
@@ -192,7 +227,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 				return false;
 			}
 
-			query_builder.on_userQuery(userQueryValue.c_str());
+			query_builder.on_user_query(userQueryValue.c_str());
 		}
 		else if (xmlStrncmp(pLocalName, BAD_CAST"query", 5) == 0)
 		{
@@ -220,13 +255,14 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			SimpleType propType = m_propertyType;
 
 			// Property
+			// Any number of properties may be specified
 			if (xmlStrncmp(pLocalName, BAD_CAST"property", 8) == 0)
 			{
 				xmlChar *pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"name");
 
 				if (pAttrValue != NULL)
 				{
-					m_propertyName = (const char *)pAttrValue;
+					m_propertyNames.insert((const char *)pAttrValue);
 				}
 
 				// Nothing else to do here
@@ -235,19 +271,14 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			// Simple type
 			else if (xmlStrncmp(pLocalName, BAD_CAST"string", 6) == 0)
 			{
-				xmlChar *pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"phrase");
+				get_modifiers(reader);
 
-				// FIXME: support "caseSensitive", "diacriticSensitive", "slack", "ordered"
-				// "enableStemming", "language", and "fuzzy"
-				if ((pAttrValue != NULL) &&
-					(xmlStrncmp(pAttrValue, BAD_CAST"true", 4) == 0))
-				{
-					m_propertyType = Phrase;
-				}
-				else
-				{
-					m_propertyType = String;
-				}
+				m_propertyType = String;
+			}
+			else if (m_selection == FullText)
+			{
+				cerr << "XesamQLParser: full text only applies to String" << endl;
+				return false;
 			}
 			else if (xmlStrncmp(pLocalName, BAD_CAST"integer", 7) == 0)
 			{
@@ -386,7 +417,19 @@ bool XesamQLParser::is_collector_type(xmlChar *local_name,
 
 bool XesamQLParser::is_selection_type(xmlChar *local_name)
 {
+	// Reset selection and simple type-level members
+	m_propertyNames.clear();
 	m_propertyValues.clear();
+	m_propertyType = String;
+	// These only apply to String
+	m_modifiers.m_phrase = true;
+	m_modifiers.m_caseSensitive = false;
+	m_modifiers.m_diacriticSensitive = true;
+	m_modifiers.m_slack = 0;
+	m_modifiers.m_ordered = false;
+	m_modifiers.m_enableStemming = true;
+	m_modifiers.m_language.clear();
+	m_modifiers.m_fuzzy = 0.0;
 
 	// Selection types
 	if (xmlStrncmp(local_name, BAD_CAST"equals", 6) == 0)
@@ -441,5 +484,54 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name)
 
 	// FIXME: check this is nested in a collector type
 	return true;
+}
+
+void XesamQLParser::get_modifiers(xmlTextReaderPtr reader)
+{
+	xmlChar *pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"phrase");
+	if ((pAttrValue != NULL) &&
+		(xmlStrncmp(pAttrValue, BAD_CAST"false", 5) == 0))
+	{
+		m_modifiers.m_phrase = false;
+	}
+	pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"caseSensitive");
+	if ((pAttrValue != NULL) &&
+		(xmlStrncmp(pAttrValue, BAD_CAST"true", 4) == 0))
+	{
+		m_modifiers.m_caseSensitive = true;
+	}
+	pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"diacriticSensitive");
+	if ((pAttrValue != NULL) &&
+		(xmlStrncmp(pAttrValue, BAD_CAST"false", 5) == 0))
+	{
+		m_modifiers.m_diacriticSensitive = false;
+	}
+	pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"slack");
+	if (pAttrValue != NULL)
+	{
+		m_modifiers.m_slack = atoi((const char *)pAttrValue);
+	}
+	pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"ordered");
+	if ((pAttrValue != NULL) &&
+		(xmlStrncmp(pAttrValue, BAD_CAST"true", 4) == 0))
+	{
+		m_modifiers.m_ordered = true;
+	}
+	pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"enableStemming");
+	if ((pAttrValue != NULL) &&
+		(xmlStrncmp(pAttrValue, BAD_CAST"false", 5) == 0))
+	{
+		m_modifiers.m_enableStemming = false;
+	}
+	pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"language");
+	if (pAttrValue != NULL)
+	{
+		m_modifiers.m_language = (const char *)pAttrValue;
+	}
+	pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"fuzzy");
+	if (pAttrValue != NULL)
+	{
+		m_modifiers.m_fuzzy = (float)atof((const char *)pAttrValue);
+	}
 }
 
