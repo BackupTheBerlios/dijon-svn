@@ -24,82 +24,10 @@
 #include <set>
 #include <map>
 
+#include "XesamQueryBuilder.h"
+
 namespace Dijon
 {
-    typedef enum { And, Or } CollectorType;
-
-    struct Collector
-    {
-	CollectorType m_collector;
-	bool m_negate;
-	float m_boost;
-    };
-
-    typedef enum { None, Equals, Contains, LessThan, LessThanEquals, GreaterThan,
-	GreaterThanEquals, StartsWith, InSet, FullText, RegExp, Proximity } SelectionType;
-
-    typedef enum { String, Integer, Date, Boolean, Float } SimpleType;
-
-    struct Modifiers
-    {
-	bool m_phrase;
-	bool m_caseSensitive;
-	bool m_diacriticSensitive;
-	int m_slack;
-	bool m_ordered;
-	bool m_enableStemming;
-	std::string m_language;
-	float m_fuzzy;
-    };
-
-    /// Interface implemented by all query builders.
-    class XesamQueryBuilder
-    {
-    public:
-	/// Builds a query builder.
-	XesamQueryBuilder()
-	{
-		m_collector.m_collector = And;
-		m_collector.m_negate = false;
-		m_collector.m_boost = 0.0;
-	};
-
-	virtual ~XesamQueryBuilder()
-	{
-	};
-
-	/// Called when the parser moves down into, or up into a collector block.
-	virtual void set_collector(const Collector &collector)
-	{
-		m_collector.m_collector = collector.m_collector;
-		m_collector.m_negate = collector.m_negate;
-		m_collector.m_boost = collector.m_boost;
-	};
-
-	/// Called when the parser has read a userQuery element.
-	virtual void on_user_query(const char *value) = 0;
-
-	/// Called when the parser has read a query block.
-	virtual void on_query(const char *type) = 0;
-
-	/// Called when the parser has read a selection block.
-	virtual void on_selection(SelectionType selection,
-		const std::set<std::string> &property_name,
-		const std::set<std::string> &property_values,
-		SimpleType property_type,
-		const Modifiers &modifiers) = 0;
-
-    protected:
-	Collector m_collector;
-
-    private:
-	/// XesamQueryBuilder objects cannot be copied.
-	XesamQueryBuilder(const XesamQueryBuilder &other);
-	/// XesamQueryBuilder objects cannot be copied.
-	XesamQueryBuilder& operator=(const XesamQueryBuilder &other);
-
-    };
-
     /// Xesam Query Language parser.
     class XesamQLParser
     {
@@ -118,9 +46,9 @@ namespace Dijon
 	int m_depth;
 	std::map<int, Collector> m_collectorsByDepth;
 	SelectionType m_selection;
-	std::set<std::string> m_propertyNames;
-	std::set<std::string> m_propertyValues;
-	SimpleType m_propertyType;
+	std::set<std::string> m_fieldNames;
+	std::set<std::string> m_fieldValues;
+	SimpleType m_fieldType;
 	Modifiers m_modifiers;
 
 	bool parse_input(xmlParserInputBufferPtr,
@@ -136,7 +64,8 @@ namespace Dijon
 		xmlTextReaderPtr reader,
 		XesamQueryBuilder &query_builder);
 
-	bool is_selection_type(xmlChar *local_name);
+	bool is_selection_type(xmlChar *local_name,
+		xmlTextReaderPtr reader);
 
 	void get_modifiers(xmlTextReaderPtr reader);
 

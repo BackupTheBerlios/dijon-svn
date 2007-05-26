@@ -23,7 +23,7 @@
 #include <set>
 #include <xapian.h>
 
-#include "XesamQLParser.h"
+#include "XesamQueryBuilder.h"
 
 namespace Dijon
 {
@@ -42,9 +42,9 @@ namespace Dijon
 	virtual void on_query(const char *type);
 
 	virtual void on_selection(SelectionType selection,
-		const std::set<std::string> &property_names,
-		const std::set<std::string> &property_values,
-		SimpleType property_type,
+		const std::set<std::string> &field_names,
+		const std::set<std::string> &field_values,
+		SimpleType field_type,
 		const Modifiers &modifiers);
 
 	Xapian::Query get_query(void) const;

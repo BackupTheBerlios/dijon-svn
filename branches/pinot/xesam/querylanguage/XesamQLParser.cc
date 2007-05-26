@@ -32,7 +32,7 @@ using namespace Dijon;
 XesamQLParser::XesamQLParser() :
 	m_depth(0),
 	m_selection(None),
-	m_propertyType(String)
+	m_fieldType(String)
 {
 }
 
@@ -106,9 +106,9 @@ bool XesamQLParser::parse_input(xmlParserInputBufferPtr buffer,
 		m_depth = 0;
 		m_collectorsByDepth.clear();
 		m_selection = None;
-		m_propertyNames.clear();
-		m_propertyValues.clear();
-		m_propertyType = String;
+		m_fieldNames.clear();
+		m_fieldValues.clear();
+		m_fieldType = String;
 
 		// First node
         	int readNode = xmlTextReaderRead(pReader);
@@ -153,9 +153,9 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			{
 				// Fire up a selection event
 				query_builder.on_selection(m_selection,
-					m_propertyNames,
-					m_propertyValues,
-					m_propertyType,
+					m_fieldNames,
+					m_fieldValues,
+					m_fieldType,
 					m_modifiers);
 
 				m_selection = None;
@@ -240,7 +240,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 		// Collector type, with at least two children
 		// Selection types
 		if ((is_collector_type(pLocalName, reader, query_builder) == false) &&
-			(is_selection_type(pLocalName) == false))
+			(is_selection_type(pLocalName, reader) == false))
 		{
 			cerr << "XesamQLParser: expected a collector or a selection type, found " << pLocalName << endl;
 			return false;
@@ -251,18 +251,18 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 	{
 		if (m_selection != None)
 		{
-			string propertyValue;
-			SimpleType propType = m_propertyType;
+			string fieldValue;
+			SimpleType fieldType = m_fieldType;
 
-			// Property
-			// Any number of properties may be specified
-			if (xmlStrncmp(pLocalName, BAD_CAST"property", 8) == 0)
+			// Field
+			// Any number of fields may be specified
+			if (xmlStrncmp(pLocalName, BAD_CAST"field", 8) == 0)
 			{
 				xmlChar *pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"name");
 
 				if (pAttrValue != NULL)
 				{
-					m_propertyNames.insert((const char *)pAttrValue);
+					m_fieldNames.insert((const char *)pAttrValue);
 				}
 
 				// Nothing else to do here
@@ -273,7 +273,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			{
 				get_modifiers(reader);
 
-				m_propertyType = String;
+				m_fieldType = String;
 			}
 			else if (m_selection == FullText)
 			{
@@ -282,49 +282,49 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			}
 			else if (xmlStrncmp(pLocalName, BAD_CAST"integer", 7) == 0)
 			{
-				m_propertyType = Integer;
+				m_fieldType = Integer;
 			}
 			else if (xmlStrncmp(pLocalName, BAD_CAST"date", 4) == 0)
 			{
-				m_propertyType = Date;
+				m_fieldType = Date;
 			}
 			else if (xmlStrncmp(pLocalName, BAD_CAST"boolean", 7) == 0)
 			{
-				m_propertyType = Boolean;
+				m_fieldType = Boolean;
 			}
 			else if (xmlStrncmp(pLocalName, BAD_CAST"float", 5) == 0)
 			{
-				m_propertyType = Float;
+				m_fieldType = Float;
 			}
 			else
 			{
-				cerr << "XesamQLParser: expected a property or simple type, found " << pLocalName << endl;
+				cerr << "XesamQLParser: expected a field or simple type, found " << pLocalName << endl;
 				return false;
 			}
 
 			// More than one value is only possible with InSet selection
 			// and all values should be of the same type
 			if ((m_selection != InSet) &&
-				(m_propertyValues.empty() == false))
+				(m_fieldValues.empty() == false))
 			{
 				cerr << "XesamQLParser: a simple type was already provided" << endl;
 				return false;
 			}
 			if ((m_selection == InSet) &&
-				(propType != m_propertyType))
+				(fieldType != m_fieldType))
 			{
 				cerr << "XesamQLParser: the same simple type should be used throughout a set" << endl;
 				return false;
 			}
 
-			if (process_text_node(reader, propertyValue) == false)
+			if (process_text_node(reader, fieldValue) == false)
 			{
 				return false;
 			}
 
-			if (propertyValue.empty() == false)
+			if (fieldValue.empty() == false)
 			{
-				m_propertyValues.insert(propertyValue);
+				m_fieldValues.insert(fieldValue);
 			}
 #ifdef DEBUG
 			else cout << "XesamQLParser::process_node: simple type has no value" << endl;
@@ -333,7 +333,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 		else
 		{
 			if ((is_collector_type(pLocalName, reader, query_builder) == false) &&
-				(is_selection_type(pLocalName) == false))
+				(is_selection_type(pLocalName, reader) == false))
 			{
 				cerr << "XesamQLParser: expected a collector or a selection type, found " << pLocalName << endl;
 				return false;
@@ -415,12 +415,13 @@ bool XesamQLParser::is_collector_type(xmlChar *local_name,
 	return true;
 }
 
-bool XesamQLParser::is_selection_type(xmlChar *local_name)
+bool XesamQLParser::is_selection_type(xmlChar *local_name,
+	xmlTextReaderPtr reader)
 {
 	// Reset selection and simple type-level members
-	m_propertyNames.clear();
-	m_propertyValues.clear();
-	m_propertyType = String;
+	m_fieldNames.clear();
+	m_fieldValues.clear();
+	m_fieldType = String;
 	// These only apply to String
 	m_modifiers.m_phrase = true;
 	m_modifiers.m_caseSensitive = false;
@@ -430,6 +431,7 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name)
 	m_modifiers.m_enableStemming = true;
 	m_modifiers.m_language.clear();
 	m_modifiers.m_fuzzy = 0.0;
+	m_modifiers.m_distance = 0;
 
 	// Selection types
 	if (xmlStrncmp(local_name, BAD_CAST"equals", 6) == 0)
@@ -475,6 +477,12 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name)
 	}
 	else if (xmlStrncmp(local_name, BAD_CAST"proximity", 9) == 0)
 	{
+		xmlChar *pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"distance");
+		if (pAttrValue != NULL)
+		{
+			m_modifiers.m_distance = atoi((const char *)pAttrValue);
+		}
+
 		m_selection = Proximity; 
 	}
 	else

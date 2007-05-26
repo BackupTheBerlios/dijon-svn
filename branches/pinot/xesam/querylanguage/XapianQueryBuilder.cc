@@ -104,14 +104,14 @@ void XapianQueryBuilder::on_query(const char *type)
 }
 
 void XapianQueryBuilder::on_selection(SelectionType selection,
-	const set<string> &property_names,
-	const set<string> &property_values,
-	SimpleType property_type,
+	const set<string> &field_names,
+	const set<string> &field_values,
+	SimpleType field_type,
 	const Modifiers &modifiers)
 {
 #ifdef DEBUG
 	cout << "XapianQueryBuilder::on_selection: called on "
-		<< property_names.size() << " properties" << endl;
+		<< field_names.size() << " fields" << endl;
 #endif
 
 	if ((selection == None) ||
@@ -142,19 +142,19 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 	}
 
 #ifdef DEBUG
-	cout << "XapianQueryBuilder::on_selection: property values are ";
+	cout << "XapianQueryBuilder::on_selection: field values are ";
 #endif
 	Xapian::Query parsedQuery;
 	bool firstValue = true;
 
-	for (set<string>::iterator valueIter = property_values.begin();
-		valueIter != property_values.end(); ++valueIter)
+	for (set<string>::iterator valueIter = field_values.begin();
+		valueIter != field_values.end(); ++valueIter)
 	{
-		string propertyValue(*valueIter);
+		string fieldValue(*valueIter);
 
 		// Let the QueryParser do the heavy lifting
 		// FIXME: we don't actually need to activate all these flags
-		Xapian::Query thisQuery = m_queryParser.parse_query(propertyValue,
+		Xapian::Query thisQuery = m_queryParser.parse_query(fieldValue,
 			Xapian::QueryParser::FLAG_BOOLEAN|Xapian::QueryParser::FLAG_PHRASE|
 			Xapian::QueryParser::FLAG_LOVEHATE|Xapian::QueryParser::FLAG_BOOLEAN_ANY_CASE|
 #if XAPIAN_MAJOR_VERSION==0
