@@ -45,6 +45,7 @@ namespace Dijon
     protected:
 	int m_depth;
 	std::map<int, Collector> m_collectorsByDepth;
+	Collector m_collector;
 	SelectionType m_selection;
 	std::set<std::string> m_fieldNames;
 	std::set<std::string> m_fieldValues;
@@ -60,6 +61,9 @@ namespace Dijon
 	bool process_text_node(xmlTextReaderPtr reader,
 		std::string &value);
 
+	void get_collectible_attributes(xmlTextReaderPtr reader,
+		bool &negate, float &boost);
+
 	bool is_collector_type(xmlChar *local_name,
 		xmlTextReaderPtr reader,
 		XesamQueryBuilder &query_builder);
@@ -67,7 +71,7 @@ namespace Dijon
 	bool is_selection_type(xmlChar *local_name,
 		xmlTextReaderPtr reader);
 
-	void get_modifiers(xmlTextReaderPtr reader);
+	void get_modifier_attributes(xmlTextReaderPtr reader);
 
     private:
 	/// XesamQLParser objects cannot be copied.

@@ -28,8 +28,39 @@ namespace Dijon
 {
     typedef enum { And, Or } CollectorType;
 
-    struct Collector
+    class Collector
     {
+    public:
+	Collector() :
+		m_collector(And),
+		m_negate(false),
+		m_boost(0.0)
+	{
+	};
+	Collector(CollectorType collector, bool negate, float boost) :
+		m_collector(collector),
+		m_negate(negate),
+		m_boost(boost)
+	{
+	};
+	Collector(const Collector &other) :
+		m_collector(other.m_collector),
+		m_negate(other.m_negate),
+		m_boost(other.m_boost)
+	{
+	};
+	~Collector()
+	{
+	};
+
+	Collector& operator=(const Collector &other)
+	{
+		m_collector = other.m_collector;
+		m_negate = other.m_negate;
+		m_boost = other.m_boost;
+		return *this;
+	};
+
 	CollectorType m_collector;
 	bool m_negate;
 	float m_boost;
@@ -42,6 +73,8 @@ namespace Dijon
 
     struct Modifiers
     {
+	bool m_negate;
+	float m_boost;
 	bool m_phrase;
 	bool m_caseSensitive;
 	bool m_diacriticSensitive;

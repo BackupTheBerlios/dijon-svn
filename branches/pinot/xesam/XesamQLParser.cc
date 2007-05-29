@@ -31,6 +31,7 @@ using namespace Dijon;
 
 XesamQLParser::XesamQLParser() :
 	m_depth(0),
+	m_collector(And, false, 0.0),
 	m_selection(None),
 	m_fieldType(String)
 {
@@ -179,7 +180,9 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 					collIter = m_collectorsByDepth.find(depth - 1);
 					if (collIter != m_collectorsByDepth.end())
 					{
-						query_builder.set_collector(collIter->second);
+						m_collector = collIter->second;
+
+						query_builder.set_collector(m_collector);
 					}
 
 #ifdef DEBUG
@@ -274,7 +277,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			// Simple type
 			else if (xmlStrncmp(pLocalName, BAD_CAST"string", 6) == 0)
 			{
-				get_modifiers(reader);
+				get_modifier_attributes(reader);
 
 				m_fieldType = String;
 			}
@@ -370,50 +373,60 @@ bool XesamQLParser::process_text_node(xmlTextReaderPtr reader, string &value)
 	return false;
 }
 
-bool XesamQLParser::is_collector_type(xmlChar *local_name,
-	xmlTextReaderPtr reader,
-	XesamQueryBuilder &query_builder)
+void XesamQLParser::get_collectible_attributes(xmlTextReaderPtr reader,
+	bool &negate, float &boost)
 {
-	Collector collector;
-
-	collector.m_collector = And;
-	collector.m_boost = 0.0;
-	collector.m_negate = false;
-
-	m_selection = None;
-
-	// Collector type, with at least two children
-	if (xmlStrncmp(local_name, BAD_CAST"and", 3) == 0)
-	{
-		collector.m_collector = And;
-	}
-	else if (xmlStrncmp(local_name, BAD_CAST"or", 2) == 0)
-	{
-		collector.m_collector = Or;
-	}
-	else
-	{
-		return false;
-	}
-
 	if (xmlTextReaderHasAttributes(reader) == 1)
 	{
 		const xmlChar *pBoost = xmlTextReaderGetAttribute(reader, BAD_CAST"boost");
 		if (pBoost != NULL)
 		{
-			collector.m_boost = (float)atof((const char *)pBoost);
+			boost = (float)atof((const char *)pBoost);
 		}
 		
 		const xmlChar *pNegate = xmlTextReaderGetAttribute(reader, BAD_CAST"negate");
 		if ((pNegate != NULL) &&
 			(xmlStrncmp(pNegate, BAD_CAST"true", 4) == 0))
 		{
-			collector.m_negate = true;
+			negate = true;
 		}
 	}
+}
 
-	m_collectorsByDepth[m_depth] = collector;
-	query_builder.set_collector(collector);
+bool XesamQLParser::is_collector_type(xmlChar *local_name,
+	xmlTextReaderPtr reader,
+	XesamQueryBuilder &query_builder)
+{
+	m_collector.m_collector = And;
+	m_collector.m_negate = false;
+	m_collector.m_boost = 0.0;
+
+	m_selection = None;
+
+	// Collector type, with at least two children
+	if (xmlStrncmp(local_name, BAD_CAST"and", 3) == 0)
+	{
+		m_collector.m_collector = And;
+	}
+	else if (xmlStrncmp(local_name, BAD_CAST"or", 2) == 0)
+	{
+		m_collector.m_collector = Or;
+	}
+	else
+	{
+		return false;
+	}
+
+	get_collectible_attributes(reader, m_collector.m_negate, m_collector.m_boost);
+
+	if ((m_collectorsByDepth.empty() == true) &&
+		(m_depth > 0))
+	{
+		m_collectorsByDepth[m_depth - 1] = Collector(And, false, 0.0);
+	}
+	m_collectorsByDepth[m_depth] = m_collector;
+
+	query_builder.set_collector(m_collector);
 
 	return true;
 }
@@ -426,6 +439,8 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name,
 	m_fieldValues.clear();
 	m_fieldType = String;
 	// These only apply to String
+	m_modifiers.m_negate = m_collector.m_negate;
+	m_modifiers.m_boost = m_collector.m_boost;
 	m_modifiers.m_phrase = true;
 	m_modifiers.m_caseSensitive = false;
 	m_modifiers.m_diacriticSensitive = true;
@@ -493,11 +508,16 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name,
 		return false;
 	}
 
+	if (m_selection != InSet)
+	{
+		get_collectible_attributes(reader, m_modifiers.m_negate, m_modifiers.m_boost);
+	}
+
 	// FIXME: check this is nested in a collector type
 	return true;
 }
 
-void XesamQLParser::get_modifiers(xmlTextReaderPtr reader)
+void XesamQLParser::get_modifier_attributes(xmlTextReaderPtr reader)
 {
 	xmlChar *pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"phrase");
 	if ((pAttrValue != NULL) &&
