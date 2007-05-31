@@ -29,50 +29,12 @@ using std::endl;
 
 using namespace Dijon;
 
-XapianQueryBuilder::XapianQueryBuilder(Xapian::Database *pIndex,
-        const string &stemLanguage, bool followOperators) :
+XapianQueryBuilder::XapianQueryBuilder(Xapian::QueryParser &queryParser) :
 	XesamQueryBuilder(),
-	m_queryParser(),
-	m_stemmer(),
+	m_queryParser(queryParser),
 	m_fullQuery(),
 	m_firstSelection(true)
 {
-	// Set things up
-	if (stemLanguage.empty() == false)
-	{
-		m_stemmer = Xapian::Stem(StringManip::toLowerCase(stemLanguage));
-		m_queryParser.set_stemming_strategy(Xapian::QueryParser::STEM_ALL);
-		m_queryParser.set_stemmer(m_stemmer);
-	}
-	else
-	{
-		m_queryParser.set_stemming_strategy(Xapian::QueryParser::STEM_NONE);
-	}
-	if (followOperators == true)
-	{
-		m_queryParser.set_default_op(Xapian::Query::OP_AND);
-	}
-	else
-	{
-		m_queryParser.set_default_op(Xapian::Query::OP_OR);
-	}
-
-	if (pIndex != NULL)
-	{
-		// The database is required for wildcards
-		m_queryParser.set_database(*pIndex);
-	}
-	// ...including prefixes
-	// X prefixes should always include a colon
-	m_queryParser.add_boolean_prefix("site", "H");
-	m_queryParser.add_boolean_prefix("file", "P");
-	m_queryParser.add_boolean_prefix("ext", "XEXT:");
-	m_queryParser.add_boolean_prefix("title", "S");
-	m_queryParser.add_boolean_prefix("url", "U");
-	m_queryParser.add_boolean_prefix("dir", "XDIR:");
-	m_queryParser.add_boolean_prefix("lang", "L");
-	m_queryParser.add_boolean_prefix("type", "T");
-	m_queryParser.add_boolean_prefix("label", "XLABEL:");
 }
 
 XapianQueryBuilder::~XapianQueryBuilder()

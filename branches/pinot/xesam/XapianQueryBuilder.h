@@ -32,9 +32,7 @@ namespace Dijon
     {
     public:
 	/// Builds a query builder for Xapian::Query.
-	XapianQueryBuilder(Xapian::Database *pIndex,
-		const std::string &stemLanguage,
-		bool followOperators);
+	XapianQueryBuilder(Xapian::QueryParser &queryParser);
 	virtual ~XapianQueryBuilder();
 
 	virtual void on_query(const char *type);
@@ -48,8 +46,7 @@ namespace Dijon
 	Xapian::Query get_query(void) const;
 
     public:
-	Xapian::QueryParser m_queryParser;
-	Xapian::Stem m_stemmer;
+	Xapian::QueryParser &m_queryParser;
 	Xapian::Query m_fullQuery;
 	bool m_firstSelection;
 

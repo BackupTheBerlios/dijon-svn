@@ -415,7 +415,7 @@ XesamULParser::~XesamULParser()
 bool XesamULParser::parse(const string &xesam_query,
 	XesamQueryBuilder &query_builder)
 {
-	size_t parsedLength = 0;
+	string::size_type parsedLength = 0;
 	bool fullParsing = false;
 
 	if (pthread_mutex_lock(&m_mutex) == 0)
@@ -428,18 +428,26 @@ bool XesamULParser::parse(const string &xesam_query,
 #ifdef DEBUG
 			cout << "XesamULParser::parse: query is " << xesam_query << endl;
 #endif
-			// Signal the query builder we are starting
-			query_builder.on_query(NULL);
 			// Initialize these before any semantic action is called
 			g_pQueryBuilder = &query_builder;
 			g_foundCollector = false;
 			g_foundPOM = false;
 			g_negate = false;
 
-			parse_info<> parseInfo = boost::spirit::parse(xesam_query.c_str(), query, skip);
-			fullParsing = parseInfo.full;
-			parsedLength = parseInfo.length;
-			// FIXME: try parsing the remainder on its own
+			// Signal the query builder we are starting
+			g_pQueryBuilder->on_query(NULL);
+
+			// If the whole string couldn't be parsed, try again starting where parsing stopped
+			while ((fullParsing == false) &&
+				(parsedLength < xesam_query.length()))
+			{
+				parse_info<> parseInfo = boost::spirit::parse(xesam_query.c_str() + parsedLength, query, skip);
+				fullParsing = parseInfo.full;
+				parsedLength += parseInfo.length;
+#ifdef DEBUG
+				cout << "XesamULParser::parse: status is " << fullParsing << ", length " << parseInfo.length << endl;
+#endif
+			}
 		}
 		catch (const exception &e)
 		{
@@ -456,7 +464,7 @@ bool XesamULParser::parse(const string &xesam_query,
 			fullParsing = false;
 		}
 #ifdef DEBUG
-		cout << "XesamULParser::parse: status is " << fullParsing << ", length " << parsedLength << endl;
+		cout << "XesamULParser::parse: final status is " << fullParsing << ", length " << parsedLength << endl;
 #endif
 
 		pthread_mutex_unlock(&m_mutex);
