@@ -65,6 +65,36 @@ void set_collector_action(char const *first, char const *last)
 	g_negate = false;
 }
 
+/// Semantic action for statements.
+void on_statement(char const *first, char const *last)
+{
+#ifdef DEBUG
+	cout << "on_statement: called" << endl;
+#endif
+	if (g_foundCollector == true)
+	{
+		g_foundCollector = false;
+	}
+	else
+	{
+		Collector collector(And, false, 0.0);
+
+		// No collector was found between this and the previous statement 
+		// Revert to And, the default collector
+		g_pQueryBuilder->set_collector(collector);
+	}
+
+	if (g_foundPOM == true)
+	{
+		g_foundPOM = false;
+	}
+	else
+	{
+		// Revert to +
+		g_negate = false;
+	}
+}
+
 /// Semantic action for the plus_or_minus rule.
 void on_pom_action(char const *first, char const *last)
 {
@@ -87,17 +117,84 @@ void on_pom_action(char const *first, char const *last)
 /// Semantic action for the selection rule.
 void on_selection_action(char const *first, char const *last)
 {
+	set<string> fieldNames, fieldValues;
 	string str(first, last);
+	string::size_type pos;
+	SelectionType selectionType = FullText;
+	SimpleType type = String; 
+	Modifiers modifiers;
 
 #ifdef DEBUG
 	cout << "on_selection_action: found " << str << endl;
 #endif
-	// FIXME: parse str, find the SelectionType and SimpleType, and call on_selection()
+	if (str.empty() == true)
+	{
+		return;
+	}
+
+	// These only apply to String
+	modifiers.m_negate = g_negate;
+	modifiers.m_boost = 0.0;
+	modifiers.m_phrase = true;
+	modifiers.m_caseSensitive = false;
+	modifiers.m_diacriticSensitive = true;
+	modifiers.m_slack = 0;
+	modifiers.m_ordered = false;
+	modifiers.m_enableStemming = true;
+	modifiers.m_language.clear();
+	modifiers.m_fuzzy = 0.0;
+	modifiers.m_distance = 0;
+
+	if ((pos = str.find(':')) != string::npos)
+	{
+		selectionType = Equals;
+	}
+	else if ((pos = str.find("<=")) != string::npos)
+	{
+		selectionType = LessThanEquals;
+	}
+	else if ((pos = str.find(">=")) != string::npos)
+	{
+		selectionType = GreaterThanEquals;
+	}
+	else if ((pos = str.find('=')) != string::npos)
+	{
+		selectionType = Equals;
+	}
+	else if ((pos = str.find('<')) != string::npos)
+	{
+		selectionType = LessThan;
+	}
+	else if ((pos = str.find('>')) != string::npos)
+	{
+		selectionType = GreaterThan;
+	}
+	else
+	{
+		// No relation found
+		return;
+	}
+
+	if (pos + 1 >= str.length())
+	{
+		// A value is required
+		return;
+	}
+
+	// FIXME: determine SimpleType based on fieldName
+	string fieldName(str.substr(0, pos));
+
+	fieldNames.insert(fieldName);
+	fieldValues.insert(str.substr(pos + 1));
+
+	g_pQueryBuilder->on_selection(selectionType,
+		fieldNames, fieldValues, type, modifiers);
 }
 
 /// Semantic action for the phrase rule.
 void on_phrase_action(char const *first, char const *last)
 {
+	set<string> fieldNames, fieldValues;
 	string str(first, last);
 	SelectionType selectionType = FullText;
 	SimpleType type = String; 
@@ -106,29 +203,6 @@ void on_phrase_action(char const *first, char const *last)
 #ifdef DEBUG
 	cout << "on_phrase_action: found " << str << endl;
 #endif
-	if (g_foundCollector == true)
-	{
-		g_foundCollector = false;
-	}
-	else
-	{
-		Collector collector(And, false, 0.0);
-
-		// No collector was found between this and the previous phrase
-		// so use And, the default collector
-		g_pQueryBuilder->set_collector(collector);
-	}
-	if (g_foundPOM == true)
-	{
-		g_foundPOM = false;
-	}
-	else
-	{
-		// No POM was found, revert to +
-		g_negate = false;
-	}
-	// FIXME: parse the modifiers, find the SelectionType and call on_selection()
-
 	if (str.empty() == true)
 	{
 		return;
@@ -154,6 +228,7 @@ void on_phrase_action(char const *first, char const *last)
 		{
 			return;
 		}
+		fieldValues.insert(str.substr(1, closingQuote - 1));
 
 		// Are there modifiers ?
 		if (closingQuote < str.length() - 1)
@@ -246,10 +321,11 @@ void on_phrase_action(char const *first, char const *last)
 			}
 		}
 	}
+	else
+	{
+		fieldValues.insert(str);
+	}
 
-	set<string> fieldNames, fieldValues;
-
-	fieldValues.insert(str);
 	g_pQueryBuilder->on_selection(selectionType,
 		fieldNames, fieldValues, type, modifiers);
 }
@@ -303,10 +379,10 @@ struct xesam_ul_grammar : public grammar<xesam_ul_grammar>
 			field_name = *(range_p('a','z') | range_p('A','Z'));
 
 			// Valid relations
-			relation = ch_p('=') |
-				ch_p(':') |
+			relation = ch_p(':') |
 				str_p("<=") |
 				str_p(">=") |
+				ch_p('=') |
 				ch_p('<') |
 				ch_p('>');
 
@@ -334,7 +410,7 @@ struct xesam_ul_grammar : public grammar<xesam_ul_grammar>
 			collector = as_lower_d[str_p("or")] | str_p("||") | as_lower_d[str_p("and")] | str_p("&&");
 
 			// Statements
-			statement = *(plus_or_minus)[&on_pom_action] >> *(selection)[&on_selection_action] >> phrase[&on_phrase_action];
+			statement = (*(plus_or_minus)[&on_pom_action] >> *(selection)[&on_selection_action] >> phrase[&on_phrase_action])[&on_statement];
 		}
 
 		rule<ScannerT> ul_query, plus, minus, plus_or_minus, field_name, relation;
