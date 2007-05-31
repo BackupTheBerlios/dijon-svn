@@ -18,7 +18,6 @@
 
 #include <iostream>
 
-#include "StringManip.h"
 #include "XapianQueryBuilder.h"
 
 using std::string;
