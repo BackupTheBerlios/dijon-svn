@@ -79,18 +79,6 @@ XapianQueryBuilder::~XapianQueryBuilder()
 {
 }
 
-void XapianQueryBuilder::on_user_query(const char *value)
-{
-#ifdef DEBUG
-	cout << "XapianQueryBuilder::on_user_query: called";
-	if (value != NULL)
-	{
-		cout << " with " << value;
-	}
-	cout << endl;
-#endif
-}
-
 void XapianQueryBuilder::on_query(const char *type)
 {
 #ifdef DEBUG
@@ -128,7 +116,7 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		(selection == Proximity))
 	{
 #ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: performing full text search";
+		cout << "XapianQueryBuilder::on_selection: performing full text search" << endl;
 #endif
 	}
 	else
@@ -136,13 +124,13 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		// The rest deals with numerical values
 		// FIXME: handle them
 #ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: no support for numerical values yet";
+		cout << "XapianQueryBuilder::on_selection: no support for numerical values yet" << endl;
 #endif
 		return;
 	}
 
 #ifdef DEBUG
-	cout << "XapianQueryBuilder::on_selection: field values are ";
+	cout << "XapianQueryBuilder::on_selection: field values are " << endl;
 #endif
 	Xapian::Query parsedQuery;
 	bool firstValue = true;

@@ -37,8 +37,6 @@ namespace Dijon
 		bool followOperators);
 	virtual ~XapianQueryBuilder();
 
-	virtual void on_user_query(const char *value);
-
 	virtual void on_query(const char *type);
 
 	virtual void on_selection(SelectionType selection,

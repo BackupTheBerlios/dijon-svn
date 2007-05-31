@@ -132,18 +132,7 @@ void on_selection_action(char const *first, char const *last)
 		return;
 	}
 
-	// These only apply to String
 	modifiers.m_negate = g_negate;
-	modifiers.m_boost = 0.0;
-	modifiers.m_phrase = true;
-	modifiers.m_caseSensitive = false;
-	modifiers.m_diacriticSensitive = true;
-	modifiers.m_slack = 0;
-	modifiers.m_ordered = false;
-	modifiers.m_enableStemming = true;
-	modifiers.m_language.clear();
-	modifiers.m_fuzzy = 0.0;
-	modifiers.m_distance = 0;
 
 	if ((pos = str.find(':')) != string::npos)
 	{
@@ -208,18 +197,7 @@ void on_phrase_action(char const *first, char const *last)
 		return;
 	}
 
-	// These only apply to String
 	modifiers.m_negate = g_negate;
-	modifiers.m_boost = 0.0;
-	modifiers.m_phrase = true;
-	modifiers.m_caseSensitive = false;
-	modifiers.m_diacriticSensitive = true;
-	modifiers.m_slack = 0;
-	modifiers.m_ordered = false;
-	modifiers.m_enableStemming = true;
-	modifiers.m_language.clear();
-	modifiers.m_fuzzy = 0.0;
-	modifiers.m_distance = 0;
 
 	if (str[0] == '"')
 	{

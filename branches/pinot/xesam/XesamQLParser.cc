@@ -59,7 +59,7 @@ bool XesamQLParser::parse(const string &xesam_query,
 	}
 
 #ifdef DEBUG
-	cout << "XesamULParser::parse: query is " << xesam_query << endl;
+	cout << "XesamQLParser::parse: query is " << xesam_query << endl;
 #endif
 	parsedQuery = parse_input(pBuffer, query_builder);
 
