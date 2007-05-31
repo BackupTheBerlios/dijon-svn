@@ -31,35 +31,12 @@ namespace Dijon
     class Collector
     {
     public:
-	Collector() :
-		m_collector(And),
-		m_negate(false),
-		m_boost(0.0)
-	{
-	};
-	Collector(CollectorType collector, bool negate, float boost) :
-		m_collector(collector),
-		m_negate(negate),
-		m_boost(boost)
-	{
-	};
-	Collector(const Collector &other) :
-		m_collector(other.m_collector),
-		m_negate(other.m_negate),
-		m_boost(other.m_boost)
-	{
-	};
-	~Collector()
-	{
-	};
+	Collector();
+	Collector(CollectorType collector, bool negate, float boost);
+	Collector(const Collector &other);
+	~Collector();
 
-	Collector& operator=(const Collector &other)
-	{
-		m_collector = other.m_collector;
-		m_negate = other.m_negate;
-		m_boost = other.m_boost;
-		return *this;
-	};
+	Collector& operator=(const Collector &other);
 
 	CollectorType m_collector;
 	bool m_negate;
@@ -71,8 +48,15 @@ namespace Dijon
 
     typedef enum { String, Integer, Date, Boolean, Float } SimpleType;
 
-    struct Modifiers
+    class Modifiers
     {
+    public:
+	Modifiers();
+	Modifiers(const Modifiers &other);
+	~Modifiers();
+
+	Modifiers& operator=(const Modifiers &other);
+
 	bool m_negate;
 	float m_boost;
 	bool m_phrase;
@@ -91,27 +75,14 @@ namespace Dijon
     {
     public:
 	/// Builds a query builder.
-	XesamQueryBuilder()
-	{
-		m_collector.m_collector = And;
-		m_collector.m_negate = false;
-		m_collector.m_boost = 0.0;
-	};
-
-	virtual ~XesamQueryBuilder()
-	{
-	};
+	XesamQueryBuilder();
+	virtual ~XesamQueryBuilder();
 
 	/// Called when the parser moves down into, or up into a collector block.
-	virtual void set_collector(const Collector &collector)
-	{
-		m_collector.m_collector = collector.m_collector;
-		m_collector.m_negate = collector.m_negate;
-		m_collector.m_boost = collector.m_boost;
-	};
+	virtual void set_collector(const Collector &collector);
 
 	/// Called when the parser has read a userQuery element.
-	virtual void on_user_query(const char *value) = 0;
+	virtual void on_user_query(const char *value);
 
 	/// Called when the parser has read a query block.
 	virtual void on_query(const char *type) = 0;
