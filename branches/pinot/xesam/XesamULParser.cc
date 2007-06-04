@@ -35,13 +35,62 @@ using namespace boost::spirit;
 
 using namespace Dijon;
 
-static XesamQueryBuilder *g_pQueryBuilder = NULL;
-static bool g_foundCollector = false;
-static bool g_foundPOM = false;
-static bool g_negate = false;
+class ULActions
+{
+    public:
+	// Initialization.
+	static void initialize(XesamQueryBuilder *pQueryBuilder);
 
-/// Semantic action for the collector rule.
-void set_collector_action(char const *first, char const *last)
+	/// Semantic action for the collector rule.
+	static void set_collector_action(char const *first, char const *last);
+
+	/// Semantic action for statements.
+	static void on_statement(char const *first, char const *last);
+
+	/// Semantic action for the plus_or_minus rule.
+	static void on_pom_action(char const *first, char const *last);
+
+	/// Semantic action for field values.
+	static void on_field_name_action(char const *first, char const *last);
+
+	/// Semantic action for field relations.
+	static void on_relation_action(char const *first, char const *last);
+
+	/// Semantic action for field values.
+	static void on_field_value_action(char const *first, char const *last);
+
+	/// Semantic action for the phrase rule.
+	static void on_phrase_action(char const *first, char const *last);
+
+	static XesamQueryBuilder *m_pQueryBuilder;
+	static bool m_foundCollector;
+	static bool m_foundPOM;
+	static bool m_negate;
+	static string m_fieldName;
+	static SelectionType m_fieldSelectionType;
+};
+
+XesamQueryBuilder *ULActions::m_pQueryBuilder = NULL;
+bool ULActions::m_foundCollector = false;
+bool ULActions::m_foundPOM = false;
+bool ULActions::m_negate = false;
+string ULActions::m_fieldName;
+SelectionType ULActions::m_fieldSelectionType = None;
+
+void ULActions::initialize(XesamQueryBuilder *pQueryBuilder)
+{
+	m_pQueryBuilder = pQueryBuilder;
+	m_foundCollector = false;
+	m_foundPOM = false;
+	m_negate = false;
+	m_fieldName.clear();
+	m_fieldSelectionType = None;
+
+	// Signal the query builder we are starting
+	m_pQueryBuilder->on_query(NULL);
+}
+
+void ULActions::set_collector_action(char const *first, char const *last)
 {
 	string str(first, last);
 	Collector collector(And, false, 0.0);
@@ -58,22 +107,21 @@ void set_collector_action(char const *first, char const *last)
 		collector.m_collector = Or;
 	}
 
-	g_pQueryBuilder->set_collector(collector);
+	m_pQueryBuilder->set_collector(collector);
 
-	g_foundCollector = true;
-	g_foundPOM = false;
-	g_negate = false;
+	m_foundCollector = true;
+	m_foundPOM = false;
+	m_negate = false;
 }
 
-/// Semantic action for statements.
-void on_statement(char const *first, char const *last)
+void ULActions::on_statement(char const *first, char const *last)
 {
 #ifdef DEBUG
 	cout << "on_statement: called" << endl;
 #endif
-	if (g_foundCollector == true)
+	if (m_foundCollector == true)
 	{
-		g_foundCollector = false;
+		m_foundCollector = false;
 	}
 	else
 	{
@@ -81,22 +129,21 @@ void on_statement(char const *first, char const *last)
 
 		// No collector was found between this and the previous statement 
 		// Revert to And, the default collector
-		g_pQueryBuilder->set_collector(collector);
+		m_pQueryBuilder->set_collector(collector);
 	}
 
-	if (g_foundPOM == true)
+	if (m_foundPOM == true)
 	{
-		g_foundPOM = false;
+		m_foundPOM = false;
 	}
 	else
 	{
 		// Revert to +
-		g_negate = false;
+		m_negate = false;
 	}
 }
 
-/// Semantic action for the plus_or_minus rule.
-void on_pom_action(char const *first, char const *last)
+void ULActions::on_pom_action(char const *first, char const *last)
 {
 	string str(first, last);
 
@@ -105,83 +152,101 @@ void on_pom_action(char const *first, char const *last)
 #endif
 	if (str == "-")
 	{
-		g_negate = true;
+		m_negate = true;
 	}
 	else
 	{
-		g_negate = false;
+		m_negate = false;
 	}
-	g_foundPOM = true;
+	m_foundPOM = true;
 }
 
-/// Semantic action for the selection rule.
-void on_selection_action(char const *first, char const *last)
+void ULActions::on_field_name_action(char const *first, char const *last)
 {
-	set<string> fieldNames, fieldValues;
 	string str(first, last);
-	string::size_type pos;
-	SelectionType selectionType = FullText;
-	SimpleType type = String; 
-	Modifiers modifiers;
 
 #ifdef DEBUG
-	cout << "on_selection_action: found " << str << endl;
+	cout << "on_field_name_action: found " << str << endl;
 #endif
 	if (str.empty() == true)
 	{
 		return;
 	}
 
-	modifiers.m_negate = g_negate;
-
-	if ((pos = str.find(':')) != string::npos)
-	{
-		selectionType = Equals;
-	}
-	else if ((pos = str.find("<=")) != string::npos)
-	{
-		selectionType = LessThanEquals;
-	}
-	else if ((pos = str.find(">=")) != string::npos)
-	{
-		selectionType = GreaterThanEquals;
-	}
-	else if ((pos = str.find('=')) != string::npos)
-	{
-		selectionType = Equals;
-	}
-	else if ((pos = str.find('<')) != string::npos)
-	{
-		selectionType = LessThan;
-	}
-	else if ((pos = str.find('>')) != string::npos)
-	{
-		selectionType = GreaterThan;
-	}
-	else
-	{
-		// No relation found
-		return;
-	}
-
-	if (pos + 1 >= str.length())
-	{
-		// A value is required
-		return;
-	}
-
 	// FIXME: determine SimpleType based on fieldName
-	string fieldName(str.substr(0, pos));
-
-	fieldNames.insert(fieldName);
-	fieldValues.insert(str.substr(pos + 1));
-
-	g_pQueryBuilder->on_selection(selectionType,
-		fieldNames, fieldValues, type, modifiers);
+	m_fieldName = str;
 }
 
-/// Semantic action for the phrase rule.
-void on_phrase_action(char const *first, char const *last)
+void ULActions::on_relation_action(char const *first, char const *last)
+{
+	string str(first, last);
+
+#ifdef DEBUG
+	cout << "on_relation_action: found " << str << endl;
+#endif
+	if ((str.empty() == true) ||
+		(m_fieldName.empty() == true))
+	{
+		return;
+	}
+
+	m_fieldSelectionType = None;
+	if (str == ":")
+	{
+		m_fieldSelectionType = Equals;
+	}
+	else if (str == "<=")
+	{
+		m_fieldSelectionType = LessThanEquals;
+	}
+	else if (str == ">=")
+	{
+		m_fieldSelectionType = GreaterThanEquals;
+	}
+	else if (str == "=")
+	{
+		m_fieldSelectionType = Equals;
+	}
+	else if (str == "<")
+	{
+		m_fieldSelectionType = LessThan;
+	}
+	else if (str == ">")
+	{
+		m_fieldSelectionType = GreaterThan;
+	}
+}
+
+void ULActions::on_field_value_action(char const *first, char const *last)
+{
+	set<string> fieldNames, fieldValues;
+	string str(first, last);
+	string::size_type pos;
+	SimpleType type = String; 
+	Modifiers modifiers;
+
+#ifdef DEBUG
+	cout << "on_selection_action: found " << str << endl;
+#endif
+	if ((str.empty() == true) ||
+		(m_fieldName.empty() == true))
+	{
+		return;
+	}
+
+	modifiers.m_negate = m_negate;
+
+	fieldNames.insert(m_fieldName);
+	fieldValues.insert(str);
+
+	m_pQueryBuilder->on_selection(m_fieldSelectionType,
+		fieldNames, fieldValues, type, modifiers);
+
+	m_fieldName.clear();
+	m_fieldSelectionType = None;
+}
+
+void ULActions::on_phrase_action(char const *first, char const *last)
 {
 	set<string> fieldNames, fieldValues;
 	string str(first, last);
@@ -197,7 +262,7 @@ void on_phrase_action(char const *first, char const *last)
 		return;
 	}
 
-	modifiers.m_negate = g_negate;
+	modifiers.m_negate = m_negate;
 
 	if (str[0] == '"')
 	{
@@ -304,7 +369,7 @@ void on_phrase_action(char const *first, char const *last)
 		fieldValues.insert(str);
 	}
 
-	g_pQueryBuilder->on_selection(selectionType,
+	m_pQueryBuilder->on_selection(selectionType,
 		fieldNames, fieldValues, type, modifiers);
 }
 
@@ -343,7 +408,7 @@ struct xesam_ul_grammar : public grammar<xesam_ul_grammar>
 		{
 			// Start
 			// Statements are separated by collectors
-			ul_query = statement >> *(collector[&set_collector_action] >> statement);
+			ul_query = statement >> *(collector[&ULActions::set_collector_action] >> statement);
 
 			// Positive or negative ?
 			plus = ch_p('+');
@@ -376,7 +441,8 @@ struct xesam_ul_grammar : public grammar<xesam_ul_grammar>
 			field_value = ch_p('"') >> quoted_value >> ch_p('"') | value;
 
 			// Selection
-			selection = field_name >> relation >> field_value;
+			selection = field_name[&ULActions::on_field_name_action] >> relation[&ULActions::on_relation_action]
+				>> field_value[&ULActions::on_field_value_action];
 
 			// Quoted phrases end with modifiers directly after the closing double-quote
 			quoted_phrase = ch_p('"') >> quoted_value >> lexeme_d[ch_p('"') >> *(anychar_p - chset<>("\" \n"))];
@@ -388,7 +454,8 @@ struct xesam_ul_grammar : public grammar<xesam_ul_grammar>
 			collector = as_lower_d[str_p("or")] | str_p("||") | as_lower_d[str_p("and")] | str_p("&&");
 
 			// Statements
-			statement = (*(plus_or_minus)[&on_pom_action] >> *(selection)[&on_selection_action] >> phrase[&on_phrase_action])[&on_statement];
+			statement = (*(plus_or_minus)[&ULActions::on_pom_action] >> *(selection)
+				>> phrase[&ULActions::on_phrase_action])[&ULActions::on_statement];
 		}
 
 		rule<ScannerT> ul_query, plus, minus, plus_or_minus, field_name, relation;
@@ -428,14 +495,8 @@ bool XesamULParser::parse(const string &xesam_query,
 #ifdef DEBUG
 			cout << "XesamULParser::parse: query is " << xesam_query << endl;
 #endif
-			// Initialize these before any semantic action is called
-			g_pQueryBuilder = &query_builder;
-			g_foundCollector = false;
-			g_foundPOM = false;
-			g_negate = false;
-
-			// Signal the query builder we are starting
-			g_pQueryBuilder->on_query(NULL);
+			// Initialize
+			ULActions::initialize(&query_builder);
 
 			// If the whole string couldn't be parsed, try again starting where parsing stopped
 			while ((fullParsing == false) &&
