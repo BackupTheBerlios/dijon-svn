@@ -24,22 +24,22 @@
 #include <set>
 #include <map>
 
-#include "XesamQueryBuilder.h"
+#include "XesamParser.h"
 
 namespace Dijon
 {
     /// Xesam Query Language parser.
-    class XesamQLParser
+    class XesamQLParser : public XesamParser
     {
     public:
 	/// Builds a parser for the Xesam Query Language.
 	XesamQLParser();
 	virtual ~XesamQLParser();
 
-	bool parse(const std::string &xesam_query,
+	virtual bool parse(const std::string &xesam_query,
 		XesamQueryBuilder &query_builder);
 
-	bool parse_file(const std::string &xesam_query_file,
+	virtual bool parse_file(const std::string &xesam_query_file,
 		XesamQueryBuilder &query_builder);
 
     protected:

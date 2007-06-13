@@ -17,6 +17,7 @@
  */
 
 #include <iostream>
+#include <fstream>
 #include <boost/spirit/core.hpp>
 #include <boost/spirit/actor/push_back_actor.hpp>
 #include <boost/spirit/actor/insert_at_actor.hpp>
@@ -31,6 +32,8 @@ using std::string;
 using std::set;
 using std::map;
 using std::exception;
+using std::ifstream;
+using std::ios;
 using namespace boost::spirit;
 
 using namespace Dijon;
@@ -471,7 +474,8 @@ struct xesam_ul_grammar : public grammar<xesam_ul_grammar>
 
 pthread_mutex_t XesamULParser::m_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-XesamULParser::XesamULParser()
+XesamULParser::XesamULParser() :
+	XesamParser()
 {
 }
 
@@ -537,6 +541,29 @@ bool XesamULParser::parse(const string &xesam_query,
 bool XesamULParser::parse_file(const string &xesam_query_file,
 	XesamQueryBuilder &query_builder)
 {
-	return false;
+	ifstream inputFile;
+	bool readFile = false;
+
+	inputFile.open(xesam_query_file.c_str());
+	if (inputFile.good() == true)
+	{
+		inputFile.seekg(0, ios::end);
+		int length = inputFile.tellg();
+		inputFile.seekg(0, ios::beg);
+
+		char *pXmlBuffer = new char[length + 1];
+		inputFile.read(pXmlBuffer, length);
+		if (inputFile.fail() == false)
+		{
+			pXmlBuffer[length] = '\0';
+			string fileContents(pXmlBuffer, length);
+
+			readFile = parse(fileContents, query_builder);
+		}
+		delete[] pXmlBuffer;
+	}
+	inputFile.close();
+
+	return readFile;
 }
 

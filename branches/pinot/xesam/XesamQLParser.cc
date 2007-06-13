@@ -30,6 +30,7 @@ using std::endl;
 using namespace Dijon;
 
 XesamQLParser::XesamQLParser() :
+	XesamParser(),
 	m_depth(0),
 	m_collector(And, false, 0.0),
 	m_selection(None),

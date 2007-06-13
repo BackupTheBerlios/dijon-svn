@@ -16,40 +16,36 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef _DIJON_XESAMULPARSER_H
-#define _DIJON_XESAMULPARSER_H
+#ifndef _DIJON_XESAMPARSER_H
+#define _DIJON_XESAMPARSER_H
 
-#include <pthread.h>
 #include <string>
 
-#include "XesamParser.h"
+#include "XesamQueryBuilder.h"
 
 namespace Dijon
 {
-    /// Xesam User Language parser.
-    class XesamULParser : public XesamParser
+    /// A Xesam parser.
+    class XesamParser
     {
     public:
-	/// Builds a parser for the Xesam User Language.
-	XesamULParser();
-	virtual ~XesamULParser();
+	/// Builds a parser.
+	XesamParser() {};
+	virtual ~XesamParser() {};
 
 	virtual bool parse(const std::string &xesam_query,
-		XesamQueryBuilder &query_builder);
+		XesamQueryBuilder &query_builder) = 0;
 
 	virtual bool parse_file(const std::string &xesam_query_file,
-		XesamQueryBuilder &query_builder);
-
-    protected:
-	static pthread_mutex_t m_mutex;
+		XesamQueryBuilder &query_builder) = 0;
 
     private:
-	/// XesamULParser objects cannot be copied.
-	XesamULParser(const XesamULParser &other);
-	/// XesamULParser objects cannot be copied.
-	XesamULParser& operator=(const XesamULParser &other);
+	/// XesamParser objects cannot be copied.
+	XesamParser(const XesamParser &other);
+	/// XesamParser objects cannot be copied.
+	XesamParser& operator=(const XesamParser &other);
 
     };
 }
 
-#endif // _DIJON_XESAMULPARSER_H
+#endif // _DIJON_XESAMPARSER_H
