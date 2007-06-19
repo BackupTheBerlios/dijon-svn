@@ -224,7 +224,6 @@ void ULActions::on_field_value_action(char const *first, char const *last)
 {
 	set<string> fieldNames, fieldValues;
 	string str(first, last);
-	string::size_type pos;
 	SimpleType type = String; 
 	Modifiers modifiers;
 
