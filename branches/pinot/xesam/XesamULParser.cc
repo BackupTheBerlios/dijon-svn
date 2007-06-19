@@ -376,12 +376,12 @@ void ULActions::on_phrase_action(char const *first, char const *last)
 }
 
 /// A grammar that skips spaces.
-struct skip_grammar : public grammar<skip_grammar>
+struct xesam_ul_skip_grammar : public grammar<xesam_ul_skip_grammar>
 {
 	template <typename ScannerT>
 	struct definition
 	{
-		definition(skip_grammar const &self)
+		definition(xesam_ul_skip_grammar const &self)
 		{
 			// Skip all spaces
 			skip = space_p;
@@ -492,7 +492,7 @@ bool XesamULParser::parse(const string &xesam_query,
 	{
 		try
 		{
-			skip_grammar skip;
+			xesam_ul_skip_grammar skip;
 			xesam_ul_grammar query;
 
 #ifdef DEBUG
