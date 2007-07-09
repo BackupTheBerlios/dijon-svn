@@ -200,6 +200,11 @@ is optional.
   <arguments>%s</arguments>
 </filter>
 <filter>
+  <mimetype>image/vnd.djvu</mimetype>
+  <command>djvutxt</command>
+  <arguments>%s</arguments>
+</filter>
+<filter>
   <mimetype>application/x-rpm</mimetype>
   <command>rpm</command>
   <arguments>-qlp %s</arguments>
