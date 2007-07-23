@@ -68,6 +68,8 @@ namespace Dijon
 	std::string m_language;
 	float m_fuzzy;
 	int m_distance;
+	bool m_wordBreak;
+	bool m_fullTextFields;
     };
 
     /// Interface implemented by all query builders.

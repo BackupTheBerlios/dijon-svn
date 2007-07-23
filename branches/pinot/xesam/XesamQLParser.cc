@@ -260,6 +260,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 		{
 			string fieldValue;
 			SimpleType fieldType = m_fieldType;
+			bool getFieldValue = true;
 
 			// Field
 			// Any number of fields may be specified
@@ -274,6 +275,14 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 
 				// Nothing else to do here
 				return true;
+			}
+			else if (((m_selection == Proximity) ||
+				(m_selection == RegExp)) &&
+				(xmlStrncmp(pLocalName, BAD_CAST"fullTextFields", 14) == 0))
+			{
+				// Set this modifier
+				m_modifiers.m_fullTextFields = true;
+				getFieldValue = false;
 			}
 			// Simple type
 			else if (xmlStrncmp(pLocalName, BAD_CAST"string", 6) == 0)
@@ -309,12 +318,13 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 				return false;
 			}
 
-			// More than one value is only possible with InSet selection
+			// More than one value is only possible with the InSet and Proximity selection
 			// and all values should be of the same type
 			if ((m_selection != InSet) &&
+				(m_selection != Proximity) &&
 				(m_fieldValues.empty() == false))
 			{
-				cerr << "XesamQLParser: a simple type was already provided" << endl;
+				cerr << "XesamQLParser: a simple type was already provided for selection type " << m_selection << endl;
 				return false;
 			}
 			if ((m_selection == InSet) &&
@@ -324,18 +334,21 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 				return false;
 			}
 
-			if (process_text_node(reader, fieldValue) == false)
+			if (getFieldValue == true)
 			{
-				return false;
-			}
+				if (process_text_node(reader, fieldValue) == false)
+				{
+					return false;
+				}
 
-			if (fieldValue.empty() == false)
-			{
-				m_fieldValues.insert(fieldValue);
-			}
+				if (fieldValue.empty() == false)
+				{
+					m_fieldValues.insert(fieldValue);
+				}
 #ifdef DEBUG
-			else cout << "XesamQLParser::process_node: simple type has no value" << endl;
+				else cout << "XesamQLParser::process_node: simple type has no value" << endl;
 #endif
+			}
 		}
 		else
 		{
@@ -451,6 +464,8 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name,
 	m_modifiers.m_language.clear();
 	m_modifiers.m_fuzzy = 0.0;
 	m_modifiers.m_distance = 0;
+	m_modifiers.m_wordBreak = false;
+	m_modifiers.m_fullTextFields = false;
 
 	// Selection types
 	if (xmlStrncmp(local_name, BAD_CAST"equals", 6) == 0)
@@ -564,6 +579,12 @@ void XesamQLParser::get_modifier_attributes(xmlTextReaderPtr reader)
 	if (pAttrValue != NULL)
 	{
 		m_modifiers.m_fuzzy = (float)atof((const char *)pAttrValue);
+	}
+	pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"wordBreak");
+	if ((pAttrValue != NULL) &&
+		(xmlStrncmp(pAttrValue, BAD_CAST"true", 4) == 0))
+	{
+		m_modifiers.m_wordBreak = true;
 	}
 }
 

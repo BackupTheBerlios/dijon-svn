@@ -76,7 +76,9 @@ Modifiers::Modifiers() :
 	m_ordered(false),
 	m_enableStemming(true),
 	m_fuzzy(0.0),
-	m_distance(0)
+	m_distance(0),
+	m_wordBreak(false),
+	m_fullTextFields(false)
 {
 }
 
@@ -91,7 +93,9 @@ Modifiers::Modifiers(const Modifiers &other) :
 	m_enableStemming(other.m_enableStemming),
 	m_language(other.m_language),
 	m_fuzzy(other.m_fuzzy),
-	m_distance(other.m_distance)
+	m_distance(other.m_distance),
+	m_wordBreak(other.m_wordBreak),
+	m_fullTextFields(other.m_fullTextFields)
 {
 }
 
@@ -114,6 +118,8 @@ Modifiers& Modifiers::operator=(const Modifiers &other)
 		m_language = other.m_language;
 		m_fuzzy = other.m_fuzzy;
 		m_distance = other.m_distance;
+		m_wordBreak = other.m_wordBreak;
+		m_fullTextFields = other.m_fullTextFields;
 	}
 
 	return *this;
