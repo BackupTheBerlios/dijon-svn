@@ -17,20 +17,35 @@
  */
 
 #include <iostream>
+#include <algorithm>
 
 #include "XapianQueryBuilder.h"
 
 using std::string;
+using std::map;
 using std::set;
+using std::for_each;
 using std::cout;
 using std::cerr;
 using std::endl;
 
 using namespace Dijon;
 
-XapianQueryBuilder::XapianQueryBuilder(Xapian::QueryParser &queryParser) :
+// A function object to lower case strings with for_each()
+struct ToLower
+{
+	public:
+		void operator()(char &c)
+		{
+			c = (char)tolower((int)c);
+		}
+};
+
+XapianQueryBuilder::XapianQueryBuilder(Xapian::QueryParser &query_parser,
+	const map<string, string> &field_to_prefix_mapping) :
 	XesamQueryBuilder(),
-	m_queryParser(queryParser),
+	m_queryParser(query_parser),
+	m_fieldMapping(field_to_prefix_mapping),
 	m_fullQuery(),
 	m_firstSelection(true)
 {
@@ -60,13 +75,16 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 {
 #ifdef DEBUG
 	cout << "XapianQueryBuilder::on_selection: called on "
-		<< field_names.size() << " fields" << endl;
+		<< field_names.size() << " field(s)" << endl;
 #endif
 
 	if ((selection == None) ||
 		(selection == RegExp))
 	{
 		// Ignore those selection types
+#ifdef DEBUG
+		cout << "XapianQueryBuilder::on_selection: ignoring selection type " << selection << endl;
+#endif
 		return;
 	}
 
@@ -90,46 +108,84 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		return;
 	}
 
-#ifdef DEBUG
-	cout << "XapianQueryBuilder::on_selection: field values are " << endl;
-#endif
 	Xapian::Query parsedQuery;
-	bool firstValue = true;
+	// FIXME: we may not actually need all these flags
+	unsigned int flags = Xapian::QueryParser::FLAG_BOOLEAN|Xapian::QueryParser::FLAG_PHRASE|
+		Xapian::QueryParser::FLAG_LOVEHATE|Xapian::QueryParser::FLAG_BOOLEAN_ANY_CASE|
+#if XAPIAN_MAJOR_VERSION==0
+		Xapian::QueryParser::FLAG_WILDCARD;
+#else
+		Xapian::QueryParser::FLAG_WILDCARD|Xapian::QueryParser::FLAG_PURE_NOT;
+#endif
+	unsigned int valueCount = 0;
 
 	for (set<string>::iterator valueIter = field_values.begin();
 		valueIter != field_values.end(); ++valueIter)
 	{
-		string fieldValue(*valueIter);
+		Xapian::Query thisQuery;
+		string pseudoQueryString(*valueIter);
 
-		// Let the QueryParser do the heavy lifting
-		// FIXME: we don't actually need to activate all these flags
-		Xapian::Query thisQuery = m_queryParser.parse_query(fieldValue,
-			Xapian::QueryParser::FLAG_BOOLEAN|Xapian::QueryParser::FLAG_PHRASE|
-			Xapian::QueryParser::FLAG_LOVEHATE|Xapian::QueryParser::FLAG_BOOLEAN_ANY_CASE|
-#if XAPIAN_MAJOR_VERSION==0
-			Xapian::QueryParser::FLAG_WILDCARD
-#else
-			Xapian::QueryParser::FLAG_WILDCARD|Xapian::QueryParser::FLAG_PURE_NOT
+		// Does this apply to known field(s) ?
+		for (set<string>::iterator nameIter = field_names.begin();
+			nameIter != field_names.end(); ++nameIter)
+		{
+			string fieldName(*nameIter);
+
+			// Lower-case field names
+			for_each(fieldName.begin(), fieldName.end(), ToLower());
+
+			if (fieldName == "mime")
+			{
+				// Special consideration apply : the QueryParser will split
+				// application/pdf into two terms which we don't want
+				thisQuery = m_queryParser.parse_query(string("type:") + pseudoQueryString, flags);
+			}
+			else
+			{
+				map<string, string>::const_iterator mapIter = m_fieldMapping.find(fieldName);
+				if (mapIter != m_fieldMapping.end())
+				{
+					// Use this prefix as default
+					thisQuery = m_queryParser.parse_query(pseudoQueryString, flags, mapIter->second);
+				}
+			}
+		}
+
+		// Was the query applied to a field ?
+		if (thisQuery.empty() == true)
+		{
+			// No, parse as is
+			thisQuery = m_queryParser.parse_query(pseudoQueryString, flags);
+		}
+#ifdef DEBUG
+		cout << "XapianQueryBuilder::on_selection: query for this field value is " << thisQuery.get_description() << endl;
 #endif
-			);
-		if (firstValue == true)
+
+		// Are there multiple values ?
+		if (valueCount == 0)
 		{
 			parsedQuery = thisQuery;
-			firstValue = false;
 		}
 		else
 		{
-			// Only InSet will have multiple values, and they should be OR'ed
-			parsedQuery = Xapian::Query(Xapian::Query::OP_OR,
-				parsedQuery, thisQuery);
+			Xapian::Query::op valuesOp = Xapian::Query::OP_OR;
+
+			// Is this proximity search ? Use the NEAR operator
+			// If InSet, OR the values together
+			if ((selection == Proximity) &&
+				(valueCount < 2))
+			{
+				// FIXME: more than two values with OP_NEAR will throw an UnimplementedError
+				// "Can't use NEAR/PHRASE with a subexpression containing NEAR or PHRASE"
+				valuesOp = Xapian::Query::OP_NEAR;
+			}
+			parsedQuery = Xapian::Query(valuesOp, parsedQuery, thisQuery);
 		}
 #ifdef DEBUG
-		cout << " " << *valueIter;
+		cout << "XapianQueryBuilder::on_selection: query for this block is " << parsedQuery.get_description() << endl;
 #endif
+		++valueCount;
 	}
-#ifdef DEBUG
- 	cout << endl;
-#endif
 
 #ifdef DEBUG
 	cout << "XapianQueryBuilder::on_selection: collector is " << m_collector.m_collector << endl;
@@ -159,7 +215,7 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		m_fullQuery = fullerQuery;
 	}
 #ifdef DEBUG
-	cout << "XapianQueryBuilder::on_selection: query now " << m_fullQuery.get_description() << endl;
+	cout << "XapianQueryBuilder::on_selection: full query now " << m_fullQuery.get_description() << endl;
 #endif
 }
 

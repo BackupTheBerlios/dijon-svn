@@ -20,6 +20,7 @@
 #define _DIJON_XAPIANQUERYBUILDER_H
 
 #include <string>
+#include <map>
 #include <set>
 #include <xapian.h>
 
@@ -32,7 +33,8 @@ namespace Dijon
     {
     public:
 	/// Builds a query builder for Xapian::Query.
-	XapianQueryBuilder(Xapian::QueryParser &queryParser);
+	XapianQueryBuilder(Xapian::QueryParser &query_parser,
+		const std::map<std::string, std::string> &field_to_prefix_mapping);
 	virtual ~XapianQueryBuilder();
 
 	virtual void on_query(const char *type);
@@ -45,10 +47,13 @@ namespace Dijon
 
 	Xapian::Query get_query(void) const;
 
-    public:
+    protected:
 	Xapian::QueryParser &m_queryParser;
+	const std::map<std::string, std::string> &m_fieldMapping;
 	Xapian::Query m_fullQuery;
 	bool m_firstSelection;
+
+	Xapian::Query parse_query();
 
     private:
 	/// XapianQueryBuilder objects cannot be copied.
