@@ -23,6 +23,7 @@
 #include <string>
 #include <set>
 #include <map>
+#include <vector>
 
 namespace Dijon
 {
@@ -92,7 +93,7 @@ namespace Dijon
 	/// Called when the parser has read a selection block.
 	virtual void on_selection(SelectionType selection,
 		const std::set<std::string> &field_names,
-		const std::set<std::string> &field_values,
+		const std::vector<std::string> &field_values,
 		SimpleType field_type,
 		const Modifiers &modifiers) = 0;
 

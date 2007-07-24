@@ -31,6 +31,7 @@ using std::endl;
 using std::string;
 using std::set;
 using std::map;
+using std::vector;
 using std::exception;
 using std::ifstream;
 using std::ios;
@@ -222,7 +223,8 @@ void ULActions::on_relation_action(char const *first, char const *last)
 
 void ULActions::on_field_value_action(char const *first, char const *last)
 {
-	set<string> fieldNames, fieldValues;
+	set<string> fieldNames;
+	vector<string> fieldValues;
 	string str(first, last);
 	SimpleType type = String; 
 	Modifiers modifiers;
@@ -239,7 +241,7 @@ void ULActions::on_field_value_action(char const *first, char const *last)
 	modifiers.m_negate = m_negate;
 
 	fieldNames.insert(m_fieldName);
-	fieldValues.insert(str);
+	fieldValues.push_back(str);
 
 	m_pQueryBuilder->on_selection(m_fieldSelectionType,
 		fieldNames, fieldValues, type, modifiers);
@@ -250,7 +252,8 @@ void ULActions::on_field_value_action(char const *first, char const *last)
 
 void ULActions::on_phrase_action(char const *first, char const *last)
 {
-	set<string> fieldNames, fieldValues;
+	set<string> fieldNames;
+	vector<string> fieldValues;
 	string str(first, last);
 	SelectionType selectionType = FullText;
 	SimpleType type = String; 
@@ -273,7 +276,7 @@ void ULActions::on_phrase_action(char const *first, char const *last)
 		{
 			return;
 		}
-		fieldValues.insert(str.substr(1, closingQuote - 1));
+		fieldValues.push_back(str.substr(1, closingQuote - 1));
 
 		// Are there modifiers ?
 		if (closingQuote < str.length() - 1)
@@ -368,7 +371,7 @@ void ULActions::on_phrase_action(char const *first, char const *last)
 	}
 	else
 	{
-		fieldValues.insert(str);
+		fieldValues.push_back(str);
 	}
 
 	m_pQueryBuilder->on_selection(selectionType,

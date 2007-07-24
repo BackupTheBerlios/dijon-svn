@@ -23,6 +23,7 @@
 #include <string>
 #include <set>
 #include <map>
+#include <vector>
 
 #include "XesamParser.h"
 
@@ -48,7 +49,7 @@ namespace Dijon
 	Collector m_collector;
 	SelectionType m_selection;
 	std::set<std::string> m_fieldNames;
-	std::set<std::string> m_fieldValues;
+	std::vector<std::string> m_fieldValues;
 	SimpleType m_fieldType;
 	Modifiers m_modifiers;
 

@@ -24,6 +24,7 @@
 using std::string;
 using std::map;
 using std::set;
+using std::vector;
 using std::for_each;
 using std::cout;
 using std::cerr;
@@ -69,7 +70,7 @@ void XapianQueryBuilder::on_query(const char *type)
 
 void XapianQueryBuilder::on_selection(SelectionType selection,
 	const set<string> &field_names,
-	const set<string> &field_values,
+	const vector<string> &field_values,
 	SimpleType field_type,
 	const Modifiers &modifiers)
 {
@@ -119,7 +120,7 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 #endif
 	unsigned int valueCount = 0;
 
-	for (set<string>::iterator valueIter = field_values.begin();
+	for (vector<string>::const_iterator valueIter = field_values.begin();
 		valueIter != field_values.end(); ++valueIter)
 	{
 		Xapian::Query thisQuery;

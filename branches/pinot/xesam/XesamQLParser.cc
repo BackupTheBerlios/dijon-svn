@@ -23,6 +23,7 @@
 using std::string;
 using std::set;
 using std::map;
+using std::vector;
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -343,7 +344,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 
 				if (fieldValue.empty() == false)
 				{
-					m_fieldValues.insert(fieldValue);
+					m_fieldValues.push_back(fieldValue);
 				}
 #ifdef DEBUG
 				else cout << "XesamQLParser::process_node: simple type has no value" << endl;

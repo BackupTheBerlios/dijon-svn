@@ -22,6 +22,7 @@
 #include <string>
 #include <map>
 #include <set>
+#include <vector>
 #include <xapian.h>
 
 #include "XesamQueryBuilder.h"
@@ -41,7 +42,7 @@ namespace Dijon
 
 	virtual void on_selection(SelectionType selection,
 		const std::set<std::string> &field_names,
-		const std::set<std::string> &field_values,
+		const std::vector<std::string> &field_values,
 		SimpleType field_type,
 		const Modifiers &modifiers);
 
