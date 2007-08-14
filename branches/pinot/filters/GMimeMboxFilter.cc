@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <iostream>
 #include <utility>
 #include <algorithm>
@@ -217,8 +218,22 @@ string GMimeMboxFilter::get_error(void) const
 
 bool GMimeMboxFilter::initialize(void)
 {
+#ifndef O_NOATIME
+	int openFlags = O_RDONLY;
+#else
+	int openFlags = O_RDONLY|O_NOATIME;
+#endif
+
 	// Open the mbox file
-	m_fd = open(m_filePath.c_str(), O_RDONLY);
+	m_fd = open(m_filePath.c_str(), openFlags);
+#ifdef O_NOATIME
+	if ((m_fd < 0) &&
+		(errno == EPERM))
+	{
+		// Try again
+		m_fd = open(m_filePath.c_str(), O_RDONLY);
+	}
+#endif
 	if (m_fd < 0)
 	{
 #ifdef DEBUG
