@@ -146,6 +146,7 @@ namespace Dijon
 			bool m_appendToText;
 			bool m_appendToLink;
 			unsigned int m_skip;
+			std::string m_charset;
 			std::string m_title;
 			std::string m_text;
 			std::string m_abstract;

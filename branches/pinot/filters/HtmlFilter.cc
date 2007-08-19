@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <libxml/xmlerror.h>
 #include <libxml/HTMLparser.h>
+#include <libxml/HTMLtree.h>
 #include <iostream>
 #include <algorithm>
 #include <utility>
@@ -69,6 +70,22 @@ Filter *get_filter(const std::string &mime_type)
 	return new HtmlFilter(mime_type);
 }
 #endif
+
+static string findCharset(const string &text)
+{
+	// Is a charset specified ?
+	string::size_type pos = text.find("charset=");
+	if (pos != string::npos)
+	{
+		string::size_type endPos = text.find_first_of("\t\r\n \"", pos);
+		if (endPos != string::npos)
+		{
+			return text.substr(pos + 8, endPos - pos - 8);
+		}
+	}
+
+	return "";
+}
 
 static bool getInBetweenLinksText(HtmlFilter::ParserState *pState,
 	unsigned int currentLinkIndex)
@@ -259,6 +276,13 @@ static void startHandler(void *pData, const char *pElementName, const char **pAt
 		// Skip
 		++pState->m_skip;
 	}
+
+	if (pState->m_appendToText == true)
+	{
+		// Replace tags with spaces
+		pState->m_text += " ";
+		pState->m_textPos += 1;
+	}
 }
 
 static void endHandler(void *pData, const char *pElementName)
@@ -443,7 +467,7 @@ static void errorHandler(void *pData, const char *pMsg, ...)
 	vsnprintf(pErr, 1000, pMsg, args );
 	va_end(args);
 
-	cerr << "HtmlFilter::errorHandler: " << pErr << endl;
+	cerr << "HtmlFilter::errorHandler: after " << pState->m_textPos << ": " << pErr << endl;
 
 	// Be lenient as much as possible
 	xmlResetLastError();
@@ -646,6 +670,7 @@ bool HtmlFilter::next_document(void)
 	{
 		bool foundCharset = false;
 
+		m_metaData["charset"] = m_pState->m_charset;
 		m_metaData["title"] = m_pState->m_title;
 		m_metaData["content"] = m_pState->m_text;
 		m_metaData["abstract"] = m_pState->m_abstract;
@@ -704,6 +729,7 @@ void HtmlFilter::rewind(void)
 bool HtmlFilter::parse_html(const string &html_doc)
 {
 	htmlSAXHandler saxHandler;
+	xmlCharEncoding encoding = XML_CHAR_ENCODING_NONE;
 
 	// Setup the SAX handler
 	memset((void*)&saxHandler, 0, sizeof(htmlSAXHandler));
@@ -723,10 +749,41 @@ bool HtmlFilter::parse_html(const string &html_doc)
 		++m_pState->m_skip;
 	}
 
+	// Is a charset specified ?
+	m_pState->m_charset = findCharset(html_doc);
+	if (m_pState->m_charset.empty() == true)
+	{
+		// Assume UTF-8
+		m_pState->m_charset = "utf-8";
+	}
+	else
+	{
+#ifdef DEBUG
+		cout << "HtmlFilter::parse_html: found charset " << m_pState->m_charset << endl;
+#endif
+		if ((m_pState->m_charset.find("ascii") != string::npos) ||
+			(m_pState->m_charset.find("ASCII") != string::npos))
+		{
+			encoding = XML_CHAR_ENCODING_ASCII;
+		}
+		else
+		{
+			encoding = xmlParseCharEncoding(m_pState->m_charset.c_str());
+			if (encoding == XML_CHAR_ENCODING_ERROR)
+			{
+				// FIXME: provie a xmlCharEncodingHandler for this charset
+				encoding = XML_CHAR_ENCODING_NONE;
+				cerr << "HtmlFilter::parse_html: charset " << m_pState->m_charset
+					<< " is not supported" << endl;
+			}
+		}
+	}
+
 	htmlParserCtxtPtr pContext = htmlCreatePushParserCtxt(&saxHandler, (void*)m_pState,
-		html_doc.c_str(), (int)html_doc.length(), "", XML_CHAR_ENCODING_NONE);
+		html_doc.c_str(), (int)html_doc.length(), "", encoding);
 	if (pContext != NULL)
 	{
+		xmlSubstituteEntitiesDefault(1);
 		xmlCtxtUseOptions(pContext, 0);
 
 		// Parse
@@ -734,8 +791,8 @@ bool HtmlFilter::parse_html(const string &html_doc)
 
 		// Free
 		htmlParseChunk(pContext, html_doc.c_str(), 0, 1);
-		xmlDocPtr pDoc = pContext->myDoc;
 		int ret = pContext->wellFormed;
+		xmlDocPtr pDoc = pContext->myDoc;
 		xmlFreeParserCtxt(pContext);
 		if (!ret)
 		{
