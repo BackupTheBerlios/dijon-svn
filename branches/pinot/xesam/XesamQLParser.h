@@ -72,6 +72,8 @@ namespace Dijon
 	bool is_selection_type(xmlChar *local_name,
 		xmlTextReaderPtr reader);
 
+	void end_of_selection_type(XesamQueryBuilder &query_builder);
+
 	void get_modifier_attributes(xmlTextReaderPtr reader);
 
     private:

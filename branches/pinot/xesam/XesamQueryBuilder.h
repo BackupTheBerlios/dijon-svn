@@ -45,7 +45,7 @@ namespace Dijon
     };
 
     typedef enum { None, Equals, Contains, LessThan, LessThanEquals, GreaterThan,
-	GreaterThanEquals, StartsWith, InSet, FullText, RegExp, Proximity } SelectionType;
+	GreaterThanEquals, StartsWith, InSet, FullText, RegExp, Proximity, Type } SelectionType;
 
     typedef enum { String, Integer, Date, Boolean, Float } SimpleType;
 
@@ -71,6 +71,8 @@ namespace Dijon
 	int m_distance;
 	bool m_wordBreak;
 	bool m_fullTextFields;
+	std::string m_treeName;
+	std::string m_treeValue;
     };
 
     /// Interface implemented by all query builders.

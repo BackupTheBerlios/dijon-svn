@@ -59,12 +59,7 @@ XapianQueryBuilder::~XapianQueryBuilder()
 void XapianQueryBuilder::on_query(const char *type)
 {
 #ifdef DEBUG
-	cout << "XapianQueryBuilder::on_query: called";
-	if (type != NULL)
-	{
-		cout << " with " << type;
-	}
-	cout << endl;
+	cout << "XapianQueryBuilder::on_query: called" << endl;
 #endif
 }
 
@@ -98,6 +93,14 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 #ifdef DEBUG
 		cout << "XapianQueryBuilder::on_selection: performing full text search" << endl;
 #endif
+	}
+	else if (selection == Type)
+	{
+		// FIXME: handle this
+#ifdef DEBUG
+		cout << "XapianQueryBuilder::on_selection: no support for type yet" << endl;
+#endif
+		return;
 	}
 	else
 	{

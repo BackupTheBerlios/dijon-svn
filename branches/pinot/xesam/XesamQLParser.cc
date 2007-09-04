@@ -148,7 +148,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 	int depth = xmlTextReaderDepth(reader);
 
 #ifdef DEBUG
-	cout << "XesamQLParser::process_node: " << depth << " " << type << endl;
+	cout << "XesamQLParser::process_node: depth " << depth << ", node type " << type << endl;
 #endif
 	if (type == XML_READER_TYPE_END_ELEMENT)
 	{
@@ -157,18 +157,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			// Are we coming out of a selection type ?
 			if (m_selection != None)
 			{
-				// Fire up a selection event
-				query_builder.on_selection(m_selection,
-					m_fieldNames,
-					m_fieldValues,
-					m_fieldType,
-					m_modifiers);
-
-				m_selection = None;
-
-#ifdef DEBUG
-				cout << "XesamQLParser::process_node: transitioning out of a selection type" << endl;
-#endif
+				end_of_selection_type(query_builder);
 			}
 			// ...or a collector type ?
 			else
@@ -198,6 +187,11 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 
 		return true;
 	}
+	else if (m_selection == Type)
+	{
+		// We have moved out of the Type selector
+		end_of_selection_type(query_builder);
+	}
 
 	m_depth = depth;
 
@@ -210,7 +204,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 	}
 
 #ifdef DEBUG
-	cout << "XesamQLParser::process_node: " << pLocalName << " " << xmlTextReaderHasValue(reader) << endl;
+	cout << "XesamQLParser::process_node: node name " << pLocalName << " " << xmlTextReaderHasValue(reader) << endl;
 #endif
 	if (depth == 0)
 	{
@@ -315,7 +309,8 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			}
 			else
 			{
-				cerr << "XesamQLParser: expected a field or simple type, found " << pLocalName << endl;
+				cerr << "XesamQLParser: expected a field or simple type in selector "
+					<< m_selection << ", found " << pLocalName << endl;
 				return false;
 			}
 
@@ -467,6 +462,8 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name,
 	m_modifiers.m_distance = 0;
 	m_modifiers.m_wordBreak = false;
 	m_modifiers.m_fullTextFields = false;
+	m_modifiers.m_treeName.clear();
+	m_modifiers.m_treeValue.clear();
 
 	// Selection types
 	if (xmlStrncmp(local_name, BAD_CAST"equals", 6) == 0)
@@ -495,20 +492,20 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name,
 	}
 	else if (xmlStrncmp(local_name, BAD_CAST"startsWith", 10) == 0)
 	{
-		m_selection = StartsWith; 
+		m_selection = StartsWith;
 	}
 	else if (xmlStrncmp(local_name, BAD_CAST"inSet", 5) == 0)
 	{
-		m_selection = InSet; 
+		m_selection = InSet;
 	}
 	else if (xmlStrncmp(local_name, BAD_CAST"fullText", 8) == 0)
 	{
-		m_selection = FullText; 
+		m_selection = FullText;
 	}
 	// Extended selection types
 	else if (xmlStrncmp(local_name, BAD_CAST"regExp", 6) == 0)
 	{
-		m_selection = RegExp; 
+		m_selection = RegExp;
 	}
 	else if (xmlStrncmp(local_name, BAD_CAST"proximity", 9) == 0)
 	{
@@ -518,20 +515,50 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name,
 			m_modifiers.m_distance = atoi((const char *)pAttrValue);
 		}
 
-		m_selection = Proximity; 
+		m_selection = Proximity;
+	}
+	else if (xmlStrncmp(local_name, BAD_CAST"type", 4) == 0)
+	{
+		xmlChar *pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"name");
+		if (pAttrValue != NULL)
+		{
+			m_modifiers.m_treeName = (const char *)pAttrValue;
+		}
+		pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"value");
+		if (pAttrValue != NULL)
+		{
+			m_modifiers.m_treeValue = (const char *)pAttrValue;
+		}
+
+		m_selection = Type;
 	}
 	else
 	{
 		return false;
 	}
 
-	if (m_selection != InSet)
+	if ((m_selection != InSet) &&
+		(m_selection != Type))
 	{
 		get_collectible_attributes(reader, m_modifiers.m_negate, m_modifiers.m_boost);
 	}
 
 	// FIXME: check this is nested in a collector type
 	return true;
+}
+
+void XesamQLParser::end_of_selection_type(XesamQueryBuilder &query_builder)
+{
+	// Fire up a selection event
+	query_builder.on_selection(m_selection,
+		m_fieldNames,
+		m_fieldValues,
+		m_fieldType,
+		m_modifiers);
+	m_selection = None;
+#ifdef DEBUG
+	cout << "XesamQLParser::end_of_selection_type: transitioning out of a selection type" << endl;
+#endif
 }
 
 void XesamQLParser::get_modifier_attributes(xmlTextReaderPtr reader)
