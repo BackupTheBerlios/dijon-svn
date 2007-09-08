@@ -195,9 +195,24 @@ is optional.
   <output>text/html</output>
 </filter>
 <filter>
-  <mimetype>application/msword</mimetype>
+  <mimetype>application/vnd.ms-word</mimetype>
   <command>antiword</command>
-  <arguments>%s</arguments>
+  <arguments>-mUTF-8.txt %s</arguments>
+</filter>
+<filter>
+  <mimetype>application/vnd.ms-excel</mimetype>
+  <command>xls2csv</command>
+  <arguments>-q0 -dutf-8 %s</arguments>
+</filter>
+<filter>
+  <mimetype>application/vnd.ms-powerpoint</mimetype>
+  <command>catppt</command>
+  <arguments>-dutf-8 %s</arguments>
+</filter>
+<filter>
+  <mimetype>application/x-dvi</mimetype>
+  <command>catdvi</command>
+  <arguments>-e2 -s %s</arguments>
 </filter>
 <filter>
   <mimetype>image/vnd.djvu</mimetype>
