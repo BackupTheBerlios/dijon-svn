@@ -18,8 +18,6 @@
 
 #include <unistd.h>
 
-#include "StringManip.h"
-#include "Url.h"
 #include "XmlFilter.h"
 
 using std::string;
@@ -54,6 +52,61 @@ Filter *get_filter(const std::string &mime_type)
 	return new XmlFilter(mime_type);
 }
 #endif
+
+static string replaceEntities(const string &str)
+{
+	// FIXME: replace all
+	static const char *escapedChars[] = { "quot", "amp", "lt", "gt", "nbsp", "eacute", "egrave", "agrave", "ccedil"};
+	static const char *unescapedChars[] = { "\"", "&", "<", ">", " ", "e", "e", "a", "c"};
+	static const unsigned int escapedCharsCount = 9;
+	string unescapedStr;
+	string::size_type startPos = 0;
+
+	string::size_type pos = str.find("&");
+	while (pos != string::npos)
+	{
+		unescapedStr += str.substr(startPos, pos - startPos);
+
+		startPos = pos + 1;
+		pos = str.find(";", startPos);
+		if ((pos != string::npos) &&
+			(pos < startPos + 10))
+		{
+			string escapedChar(str.substr(startPos, pos - startPos));
+			bool replacedChar = false;
+
+			// See if we can replace this with an actual character
+			for (unsigned int count = 0; count < escapedCharsCount; ++count)
+			{
+				if (escapedChar == escapedChars[count])
+				{
+					unescapedStr += unescapedChars[count];
+					replacedChar = true;
+					break;
+				}
+			}
+
+			if (replacedChar == false)
+			{
+				// This couldn't be replaced, leave it as it is...
+				unescapedStr += "&";
+				unescapedStr += escapedChar;
+				unescapedStr += ";";
+			}
+
+			startPos = pos + 1;
+		}
+
+		// Next
+		pos = str.find("&", startPos);
+	}
+	if (startPos < str.length())
+	{
+		unescapedStr  += str.substr(startPos);
+	}
+
+	return unescapedStr;
+}
 
 XmlFilter::XmlFilter(const string &mime_type) :
 	Filter(mime_type),
@@ -175,7 +228,7 @@ bool XmlFilter::parse_xml(const string &xml_doc)
 		return false;
 	}
 
-	string stripped(StringManip::replaceEntities(xml_doc));
+	string stripped(replaceEntities(xml_doc));
 
 	// Tag start
 	string::size_type startPos = stripped.find("<");

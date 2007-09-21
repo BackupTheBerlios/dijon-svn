@@ -30,7 +30,6 @@
 #include <gmime/gmime.h>
 
 #include "TimeConverter.h"
-#include "Url.h"
 #include "GMimeMboxFilter.h"
 
 using std::cout;

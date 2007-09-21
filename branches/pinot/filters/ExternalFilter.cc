@@ -23,8 +23,6 @@
 #include <iostream>
 #include <libxml/xmlreader.h>
 
-#include "StringManip.h"
-#include "Url.h"
 #include "ExternalFilter.h"
 
 using std::string;

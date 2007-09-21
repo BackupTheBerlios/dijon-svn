@@ -22,8 +22,6 @@
 #include <unistd.h>
 #include <iostream>
 
-#include "StringManip.h"
-#include "Url.h"
 #include "Filter.h"
 
 using std::string;

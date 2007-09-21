@@ -16,7 +16,13 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE
 #include <unistd.h>
+#undef _XOPEN_SOURCE
+#else
+#include <unistd.h>
+#endif
 #include <libxml/xmlerror.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/HTMLtree.h>
@@ -24,14 +30,15 @@
 #include <algorithm>
 #include <utility>
 
-#include "StringManip.h"
-#include "Url.h"
 #include "HtmlFilter.h"
+
+#define CRYPT_SALT "$1$htmlfilt$"
 
 using std::cout;
 using std::cerr;
 using std::endl;
 using std::string;
+using std::for_each;
 using std::map;
 using std::set;
 using std::copy;
@@ -71,6 +78,88 @@ Filter *get_filter(const std::string &mime_type)
 }
 #endif
 
+// A function object to lower case strings with for_each()
+struct ToLower
+{
+	public:
+		void operator()(char &c)
+		{
+			c = (char)tolower((int)c);
+		}
+};
+
+static unsigned int removeCharacters(string &str, const string &characters)
+{
+	unsigned int count = 0;
+
+	string::size_type charPos = str.find_first_of(characters.c_str());
+	while (charPos != string::npos)
+	{
+		str.erase(charPos, 1);
+		++count;
+
+		charPos = str.find_first_of(characters.c_str(), charPos);
+	}
+
+	return count;	
+}
+
+static unsigned int trimSpaces(string &str)
+{
+	string::size_type pos = 0;
+	unsigned int count = 0;
+
+	while ((str.empty() == false) && (pos < str.length()))
+	{
+		if (isspace(str[pos]) == 0)
+		{
+			++pos;
+			break;
+		}
+
+		str.erase(pos, 1);
+		++count;
+	}
+
+	for (pos = str.length() - 1;
+		(str.empty() == false) && (pos >= 0); --pos)
+	{
+		if (isspace(str[pos]) == 0)
+		{
+			break;
+		}
+
+		str.erase(pos, 1);
+		++count;
+	}
+
+	return count;
+}
+
+static string hashString(const string &str)
+{
+	if (str.empty() == true)
+	{
+		return "";
+	}
+
+	char *hashedString = crypt(str.c_str(), CRYPT_SALT);
+	if (hashedString == NULL)
+	{
+		return NULL;
+	}
+
+	if (strlen(hashedString) > strlen(CRYPT_SALT))
+	{
+		if (strncmp(hashedString, CRYPT_SALT, strlen(CRYPT_SALT)) == 0)
+		{
+			return hashedString + strlen(CRYPT_SALT);
+		}
+	}
+
+	return hashedString;
+}
+
 static string findCharset(const string &text)
 {
 	// Is a charset specified ?
@@ -100,7 +189,7 @@ static bool getInBetweenLinksText(HtmlFilter::ParserState *pState,
 	{
 		string abstract(pState->m_text);
 
-		StringManip::trimSpaces(abstract);
+		trimSpaces(abstract);
 
 		pState->m_abstract = abstract;
 
@@ -120,7 +209,7 @@ static bool getInBetweenLinksText(HtmlFilter::ParserState *pState,
 				unsigned int abstractLen = pState->m_textPos - linkIter->m_endPos - 1;
 				string abstract(pState->m_text.substr(linkIter->m_endPos, abstractLen));
 
-				StringManip::trimSpaces(abstract);
+				trimSpaces(abstract);
 
 				// The longer, the better
 				if (abstract.length() > pState->m_abstract.length())
@@ -161,7 +250,8 @@ static void startHandler(void *pData, const char *pElementName, const char **pAt
 	pState->m_lastHash.clear();
 
 	// What tag is this ?
-	string tagName(StringManip::toLowerCase(pElementName));
+	string tagName(pElementName);
+	for_each(tagName.begin(), tagName.end(), ToLower());
 	if ((pState->m_foundHead == false) &&
 		(tagName == "head"))
 	{
@@ -198,7 +288,8 @@ static void startHandler(void *pData, const char *pElementName, const char **pAt
 			(metaContent.empty() == false))
 		{
 			// Store this META tag
-			pState->m_metaTags[StringManip::toLowerCase(metaName)] = metaContent;
+			for_each(metaName.begin(), metaName.end(), ToLower());
+			pState->m_metaTags[metaName] = metaContent;
 		}
 	}
 	else if ((pState->m_inHead == true) &&
@@ -301,15 +392,16 @@ static void endHandler(void *pData, const char *pElementName)
 	}
 
 	// Reset state
-	string tagName(StringManip::toLowerCase(pElementName));
+	string tagName(pElementName);
+	for_each(tagName.begin(), tagName.end(), ToLower());
 	if (tagName == "head")
 	{
 		pState->m_inHead = false;
 	}
 	else if (tagName == "title")
 	{
-		StringManip::trimSpaces(pState->m_title);
-		StringManip::removeCharacters(pState->m_title, "\r\n");
+		trimSpaces(pState->m_title);
+		removeCharacters(pState->m_title, "\r\n");
 #ifdef DEBUG
 		cout << "HtmlFilter::endHandler: title is " << pState->m_title << endl;
 #endif
@@ -323,8 +415,8 @@ static void endHandler(void *pData, const char *pElementName)
 	{
 		if (pState->m_currentLink.m_url.empty() == false)
 		{
-			StringManip::trimSpaces(pState->m_currentLink.m_name);
-			StringManip::removeCharacters(pState->m_currentLink.m_name, "\r\n");
+			trimSpaces(pState->m_currentLink.m_name);
+			removeCharacters(pState->m_currentLink.m_name, "\r\n");
 
 			pState->m_currentLink.m_endPos = pState->m_textPos;
 
@@ -368,7 +460,7 @@ static void charactersHandler(void *pData, const char *pText, int textLen)
 
 	// For some reason, this handler might be called twice for the same text !
 	// See http://mail.gnome.org/archives/xml/2002-September/msg00089.html
-	string textHash(StringManip::hashString(text));
+	string textHash(hashString(text));
 	if (pState->m_lastHash == textHash)
 	{
 		// Ignore this
