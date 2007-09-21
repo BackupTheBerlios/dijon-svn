@@ -38,7 +38,7 @@ namespace Dijon
 		const std::map<std::string, std::string> &field_to_prefix_mapping);
 	virtual ~XapianQueryBuilder();
 
-	virtual void on_query(const char *type);
+	virtual void on_query(const char *content, const char *storedAs);
 
 	virtual void on_selection(SelectionType selection,
 		const std::set<std::string> &field_names,
