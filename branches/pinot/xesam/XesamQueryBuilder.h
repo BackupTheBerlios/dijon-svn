@@ -90,7 +90,7 @@ namespace Dijon
 	virtual void on_user_query(const char *value);
 
 	/// Called when the parser has read a query block.
-	virtual void on_query(const char *type) = 0;
+	virtual void on_query(const char *content, const char *storedAs) = 0;
 
 	/// Called when the parser has read a selection block.
 	virtual void on_selection(SelectionType selection,

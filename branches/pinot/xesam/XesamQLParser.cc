@@ -233,7 +233,8 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 		}
 		else if (xmlStrncmp(pLocalName, BAD_CAST"query", 5) == 0)
 		{
-			query_builder.on_query((const char *)xmlTextReaderGetAttribute(reader, BAD_CAST"type"));
+			query_builder.on_query((const char *)xmlTextReaderGetAttribute(reader, BAD_CAST"content"),
+				(const char *)xmlTextReaderGetAttribute(reader, BAD_CAST"storedAs"));
 		}
 	}
 	else if (depth == 2)
