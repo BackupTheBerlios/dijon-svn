@@ -21,6 +21,7 @@
 #include <strings.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <iostream>
@@ -29,7 +30,6 @@
 
 #include <gmime/gmime.h>
 
-#include "TimeConverter.h"
 #include "GMimeMboxFilter.h"
 
 using std::cout;
@@ -482,7 +482,18 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 				}
 				else
 				{
-					m_messageDate = TimeConverter::toTimestamp(time(NULL));
+					time_t timeNow = time(NULL);
+					struct tm timeTm;
+
+					if (localtime_r(&timeNow, &timeTm) != NULL)
+					{
+						char timeStr[64];
+
+						if (strftime(timeStr, 64, "%a, %d %b %Y %H:%M:%S %Z", &timeTm) > 0)
+						{
+							m_messageDate = timeStr;
+						}
+					}
 				}
 #ifdef DEBUG
 				cout << "GMimeMboxFilter::extractMessage: message date is " << m_messageDate << endl;
@@ -538,7 +549,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 					m_metaData["uri"] = location;
 					m_metaData["mimetype"] = contentType;
 					m_metaData["content"] = content;
-					m_metaData["creationdate"] = m_messageDate;
+					m_metaData["date"] = m_messageDate;
 					snprintf(posStr, 128, "%u", partLength);
 					m_metaData["size"] = posStr;
 					snprintf(posStr, 128, "o=%u&p=%d", m_messageStart, max(m_partNum - 1, 0));
