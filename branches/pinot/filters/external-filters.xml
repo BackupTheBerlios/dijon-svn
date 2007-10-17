@@ -195,6 +195,11 @@ is optional.
   <output>text/html</output>
 </filter>
 <filter>
+  <mimetype>application/msword</mimetype>
+  <command>antiword</command>
+  <arguments>-mUTF-8.txt %s</arguments>
+</filter>
+<filter>
   <mimetype>application/vnd.ms-word</mimetype>
   <command>antiword</command>
   <arguments>-mUTF-8.txt %s</arguments>
