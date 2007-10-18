@@ -106,7 +106,7 @@ namespace Dijon
 
 	virtual void rewind(void);
 
-	std::string escapeQuotes(const std::string &file_name);
+	bool run_command(const std::string &command);
 
     private:
 	/// ExternalFilter objects cannot be copied.
