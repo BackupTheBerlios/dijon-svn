@@ -18,7 +18,9 @@
 
 #include <iostream>
 
+#ifdef HAVE_BOOST_SPIRIT
 #include "XesamULParser.h"
+#endif
 #include "XesamQueryBuilder.h"
 
 using std::string;
@@ -146,10 +148,12 @@ void XesamQueryBuilder::on_user_query(const char *value)
 #endif
 	if (value != NULL)
 	{
+#ifdef HAVE_BOOST_SPIRIT_CORE_HPP
 		XesamULParser ulParser;
 		string xesamULQuery(value);
 
 		ulParser.parse(xesamULQuery, *this);
+#endif
 	}
 }
 

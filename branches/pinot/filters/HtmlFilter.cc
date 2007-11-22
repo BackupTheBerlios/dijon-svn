@@ -559,7 +559,9 @@ static void errorHandler(void *pData, const char *pMsg, ...)
 	vsnprintf(pErr, 1000, pMsg, args );
 	va_end(args);
 
-	cerr << "HtmlFilter::errorHandler: after " << pState->m_textPos << ": " << pErr << endl;
+#ifdef DEBUG
+	cout << "HtmlFilter::errorHandler: after " << pState->m_textPos << ": " << pErr << endl;
+#endif
 
 	// Be lenient as much as possible
 	xmlResetLastError();
@@ -576,7 +578,9 @@ static void warningHandler(void *pData, const char *pMsg, ...)
 	vsnprintf(pErr, 1000, pMsg, args );
 	va_end(args);
 
-	cerr << "HtmlFilter::warningHandler: " << pErr << endl;
+#ifdef DEBUG
+	cout << "HtmlFilter::warningHandler: " << pErr << endl;
+#endif
 }
 
 Link::Link() :
