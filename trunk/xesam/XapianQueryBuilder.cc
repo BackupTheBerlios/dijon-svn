@@ -274,10 +274,6 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 #endif
 	unsigned int valueCount = 0;
 
-	// Date range
-	Xapian::DateValueRangeProcessor dateProcessor(0);
-	m_queryParser.add_valuerangeprocessor(&dateProcessor);
-
 	for (vector<string>::const_iterator valueIter = field_values.begin();
 		valueIter != field_values.end(); ++valueIter)
 	{
