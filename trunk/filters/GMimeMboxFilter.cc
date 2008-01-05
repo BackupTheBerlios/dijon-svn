@@ -44,6 +44,8 @@ bool get_filter_types(std::set<std::string> &mime_types)
 {
 	mime_types.clear();
 	mime_types.insert("application/mbox");
+	mime_types.insert("text/x-mail");
+	mime_types.insert("text/x-news");
 
 	return true;
 }
