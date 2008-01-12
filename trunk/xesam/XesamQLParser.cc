@@ -187,9 +187,9 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 
 		return true;
 	}
-	else if (m_selection == Type)
+	else if (m_selection == Category)
 	{
-		// We have moved out of the Type selector
+		// We have moved out of the Category selector
 		end_of_selection_type(query_builder);
 	}
 
@@ -234,7 +234,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 		else if (xmlStrncmp(pLocalName, BAD_CAST"query", 5) == 0)
 		{
 			query_builder.on_query((const char *)xmlTextReaderGetAttribute(reader, BAD_CAST"content"),
-				(const char *)xmlTextReaderGetAttribute(reader, BAD_CAST"storedAs"));
+				(const char *)xmlTextReaderGetAttribute(reader, BAD_CAST"source"));
 		}
 	}
 	else if (depth == 2)
@@ -463,8 +463,8 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name,
 	m_modifiers.m_distance = 0;
 	m_modifiers.m_wordBreak = false;
 	m_modifiers.m_fullTextFields = false;
-	m_modifiers.m_treeName.clear();
-	m_modifiers.m_treeValue.clear();
+	m_modifiers.m_content.clear();
+	m_modifiers.m_source.clear();
 
 	// Selection types
 	if (xmlStrncmp(local_name, BAD_CAST"equals", 6) == 0)
@@ -518,20 +518,20 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name,
 
 		m_selection = Proximity;
 	}
-	else if (xmlStrncmp(local_name, BAD_CAST"type", 4) == 0)
+	else if (xmlStrncmp(local_name, BAD_CAST"category", 8) == 0)
 	{
-		xmlChar *pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"name");
+		xmlChar *pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"content");
 		if (pAttrValue != NULL)
 		{
-			m_modifiers.m_treeName = (const char *)pAttrValue;
+			m_modifiers.m_content = (const char *)pAttrValue;
 		}
-		pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"value");
+		pAttrValue = xmlTextReaderGetAttribute(reader, BAD_CAST"source");
 		if (pAttrValue != NULL)
 		{
-			m_modifiers.m_treeValue = (const char *)pAttrValue;
+			m_modifiers.m_source = (const char *)pAttrValue;
 		}
 
-		m_selection = Type;
+		m_selection = Category;
 	}
 	else
 	{
@@ -539,7 +539,7 @@ bool XesamQLParser::is_selection_type(xmlChar *local_name,
 	}
 
 	if ((m_selection != InSet) &&
-		(m_selection != Type))
+		(m_selection != Category))
 	{
 		get_collectible_attributes(reader, m_modifiers.m_negate, m_modifiers.m_boost);
 	}

@@ -45,7 +45,7 @@ namespace Dijon
     };
 
     typedef enum { None, Equals, Contains, LessThan, LessThanEquals, GreaterThan,
-	GreaterThanEquals, StartsWith, InSet, FullText, RegExp, Proximity, Type } SelectionType;
+	GreaterThanEquals, StartsWith, InSet, FullText, RegExp, Proximity, Category } SelectionType;
 
     typedef enum { String, Integer, Date, Boolean, Float } SimpleType;
 
@@ -71,8 +71,8 @@ namespace Dijon
 	int m_distance;
 	bool m_wordBreak;
 	bool m_fullTextFields;
-	std::string m_treeName;
-	std::string m_treeValue;
+	std::string m_content;
+	std::string m_source;
     };
 
     /// Interface implemented by all query builders.
@@ -90,7 +90,7 @@ namespace Dijon
 	virtual void on_user_query(const char *value);
 
 	/// Called when the parser has read a query block.
-	virtual void on_query(const char *content, const char *storedAs) = 0;
+	virtual void on_query(const char *content, const char *source) = 0;
 
 	/// Called when the parser has read a selection block.
 	virtual void on_selection(SelectionType selection,
