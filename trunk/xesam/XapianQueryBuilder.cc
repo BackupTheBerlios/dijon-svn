@@ -105,7 +105,6 @@ using std::set;
 using std::vector;
 using std::for_each;
 using std::cout;
-using std::cerr;
 using std::endl;
 
 using namespace Dijon;
@@ -120,16 +119,83 @@ struct ToLower
 		}
 };
 
+/// Trims spaces at the start and end of a string.
+unsigned int trimSpaces(string &str)
+{
+	string::size_type pos = 0;
+	unsigned int count = 0;
+
+	while ((str.empty() == false) && (pos < str.length()))
+	{
+		if (isspace(str[pos]) == 0)
+		{
+			++pos;
+			break;
+		}
+
+		str.erase(pos, 1);
+		++count;
+	}
+
+	for (pos = str.length() - 1;
+		(str.empty() == false) && (pos >= 0); --pos)
+	{
+		if (isspace(str[pos]) == 0)
+		{
+			break;
+		}
+
+		str.erase(pos, 1);
+		++count;
+	}
+
+	return count;
+}
+
+// Converts to a size range
+static string sizeToSizeRange(const string &size, SelectionType selection,
+	const string &min, const string &max, const string &suffix = string(""))
+{
+	string sizeRange;
+
+	if (size.empty() == true)
+	{
+		return "";
+	}
+
+	if ((selection == LessThan) ||
+		(selection == LessThanEquals))
+	{
+		sizeRange = min;
+		sizeRange += "..";
+		sizeRange += size;
+	}
+	else if ((selection == GreaterThan) ||
+		(selection == GreaterThanEquals))
+	{
+		sizeRange = size;
+		sizeRange += "..";
+		sizeRange += max;
+	}
+	sizeRange += suffix;
+#ifdef DEBUG
+	cout << "XapianQueryBuilder::sizeToSizeRange: " << sizeRange << endl;
+#endif
+
+	return sizeRange;
+}
+
 // Converts from a ISO 8601 date/time
 // Of the formats defined at http://www.w3.org/TR/NOTE-datetime, we only support
 // the formats YYYY-MM-DD, YYY-MM-DDThh:mm:ss, and YYY-MM-DDThh:mm:ssTZD
 // with a timezone or a time zone name
-static string dateTimeToDateRange(const string &timestamp, SelectionType selection)
+static string dateToDateAndTimeRanges(const string &timestamp, SelectionType selection)
 {
+	string ranges;
 	char timeStr[64];
 	struct tm timeTm;
 	time_t gmTime = 0;
-	bool inGMTime = false;
+	bool inGMTime = false, hasTime = true;
 
 	if (timestamp.empty() == true)
 	{
@@ -153,31 +219,136 @@ static string dateTimeToDateRange(const string &timestamp, SelectionType selecti
 			{
 				return "";
 			}
+
+			// No time specified
+			hasTime = false;
 		}
 	}
 
-	// FIXME: only year, month and day can be used as date ranges
+	// Year, month and day make a date range
 	if (snprintf(timeStr, 63, "%04d%02d%02d", timeTm.tm_year + 1900, timeTm.tm_mon + 1, timeTm.tm_mday) > 0)
 	{
-		string dateRange;
-
-		if ((selection == LessThan) ||
-			(selection == LessThanEquals))
-		{
-			dateRange = "19700101..";
-			dateRange += timeStr;
-		}
-		else if ((selection == GreaterThan) ||
-			(selection == GreaterThanEquals))
-		{
-			dateRange = timeStr;
-			dateRange += "..20991231";
-		}
-
-		return dateRange;
+		ranges += sizeToSizeRange(timeStr, selection, "19700101", "20991231", "");
+		ranges += " ";
+	}
+	// And hour, minute and second make a time range
+	if ((hasTime == true) &&
+		(snprintf(timeStr, 63, "%02d%02d%02d", timeTm.tm_hour, timeTm.tm_min, timeTm.tm_sec) > 0))
+	{
+		//  205111..235959
+		ranges += sizeToSizeRange(timeStr, selection, "000000", "235959", "");
+		ranges += " ";
 	}
 
-	return "";
+
+	return ranges;
+}
+
+static void extractClasses(const string &category, set<string> &xesamClasses)
+{
+	// It may be a single class or a comma separated list
+	string::size_type categoryLength = category.length();
+	string::size_type startPos = 0;
+
+	string::size_type commaPos = category.find(",", startPos);
+	while (commaPos != string::npos)
+	{
+		xesamClasses.insert(category.substr(startPos, commaPos - startPos));
+		string::size_type prevStartPos = commaPos + 1;
+
+		if (commaPos < categoryLength - 1)
+		{
+			startPos = prevStartPos;
+			commaPos = category.find(",", startPos);
+		}
+		else
+		{
+			startPos = categoryLength;
+			commaPos = string::npos;
+		}
+	}
+
+	if (startPos < categoryLength)
+	{
+		xesamClasses.insert(category.substr(startPos));
+	}
+}
+
+// Converts Xesam classes to class filters
+static string classesToFilters(const set<string> &xesamClasses)
+{
+	string filters;
+
+	for (set<string>::const_iterator classIter = xesamClasses.begin();
+		classIter != xesamClasses.end(); ++classIter)
+	{
+		string className(*classIter);
+
+		for_each(className.begin(),className.end(), ToLower());
+		trimSpaces(className);
+
+#ifdef DEBUG
+		cout << "XapianQueryBuilder::classesToFilters: " << className << endl;
+#endif
+		/* Only the most obvious classes are supported for the time being. For reference, the full list is
+		 * Alarm
+		 * Archive
+		 * ArchiveItem
+		 * Audio
+		 * AudioList
+		 * Contact
+		 * Content
+		 * DataObject
+		 * DeletedFile
+		 * Document
+		 * Email
+		 * EmailAttachment
+		 * Event
+		 * File
+		 * FileSystem
+		 * Folder
+		 * FreeBusy
+		 * Image
+		 * IMMessage
+		 * Journal
+		 * MailboxItem
+		 * Media
+		 * MediaList
+		 * Message
+		 * Partition
+		 * Photo
+		 * PIM
+		 * Presentation
+		 * Project
+		 * Software
+		 * Source
+		 * SourceCode
+		 * Spreadsheet
+		 * Task
+		 * TextDocument
+		 * Video
+		 * Visual
+		 */
+		if (className == "xesam:audio")
+		{
+			filters += "class:audio ";
+		}
+		else if ((className == "xesam:email") ||
+			(className == "xesam:message"))
+		{
+			filters += "(type:application/mbox or type:text/x-mail) ";
+		}
+		else if (className == "xesam:folder")
+		{
+			filters += "type:x-directory/normal ";
+		}
+		else if (className == "xesam:video")
+		{
+			filters += "class:video ";
+		}
+	}
+
+	return filters;
 }
 
 XapianQueryBuilder::XapianQueryBuilder(Xapian::QueryParser &query_parser,
@@ -194,11 +365,27 @@ XapianQueryBuilder::~XapianQueryBuilder()
 {
 }
 
-void XapianQueryBuilder::on_query(const char *content, const char *storedAs)
+void XapianQueryBuilder::on_query(const string &content, const string &source)
 {
 #ifdef DEBUG
 	cout << "XapianQueryBuilder::on_query: called" << endl;
 #endif
+	m_firstSelection = true;
+
+	if (content.empty() == false)
+	{
+		set<string> xesamClasses;
+
+		extractClasses(content, xesamClasses);
+		m_contentClassFilter = classesToFilters(xesamClasses);
+	}
+	if (source.empty() == false)
+	{
+		// FIXME: handle this
+#ifdef DEBUG
+		cout << "XapianQueryBuilder::on_query: no support for source yet" << endl;
+#endif
+	}
 }
 
 void XapianQueryBuilder::on_selection(SelectionType selection,
@@ -207,11 +394,21 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 	SimpleType field_type,
 	const Modifiers &modifiers)
 {
+	Xapian::Query parsedQuery;
+	// FIXME: we may not actually need all these flags
+	unsigned int flags = Xapian::QueryParser::FLAG_BOOLEAN|Xapian::QueryParser::FLAG_PHRASE|
+		Xapian::QueryParser::FLAG_LOVEHATE|Xapian::QueryParser::FLAG_BOOLEAN_ANY_CASE|
+#if XAPIAN_MAJOR_VERSION==0
+		Xapian::QueryParser::FLAG_WILDCARD;
+#else
+		Xapian::QueryParser::FLAG_WILDCARD|Xapian::QueryParser::FLAG_PURE_NOT;
+#endif
+	unsigned int valueCount = 0;
+
 #ifdef DEBUG
 	cout << "XapianQueryBuilder::on_selection: called on "
 		<< field_names.size() << " field(s)" << endl;
 #endif
-
 	if ((selection == None) ||
 		(selection == RegExp))
 	{
@@ -232,23 +429,39 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		cout << "XapianQueryBuilder::on_selection: performing full text search" << endl;
 #endif
 	}
-	else if (selection == Type)
+	else if (selection == Category)
 	{
-		// FIXME: handle this
+		set<string> xesamClasses;
+
+		if (modifiers.m_content.empty() == false)
+		{
+			extractClasses(modifiers.m_content, xesamClasses);
+
+			string classFilters(classesToFilters(xesamClasses));
+			if (classFilters.empty() == false)
+			{
+				parsedQuery = m_queryParser.parse_query(classFilters);
+			}
+		}
+
+		if (modifiers.m_source.empty() == false)
+		{
+			// FIXME: handle this
 #ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: no support for type yet" << endl;
+			cout << "XapianQueryBuilder::on_selection: no support for category source yet" << endl;
 #endif
-		return;
+		}
 	}
 	else if ((selection == LessThan) ||
 		(selection == LessThanEquals) ||
 		(selection == GreaterThan) ||
 		(selection == GreaterThanEquals))
 	{
-		if (field_type != Date)
+		if ((field_type != Integer) &&
+			(field_type != Date))
 		{
 #ifdef DEBUG
-			cout << "XapianQueryBuilder::on_selection: numerical operators only work on dates" << endl;
+			cout << "XapianQueryBuilder::on_selection: numerical operators only work on integers and dates" << endl;
 #endif
 			return;
 		}
@@ -263,34 +476,24 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		return;
 	}
 
-	Xapian::Query parsedQuery;
-	// FIXME: we may not actually need all these flags
-	unsigned int flags = Xapian::QueryParser::FLAG_BOOLEAN|Xapian::QueryParser::FLAG_PHRASE|
-		Xapian::QueryParser::FLAG_LOVEHATE|Xapian::QueryParser::FLAG_BOOLEAN_ANY_CASE|
-#if XAPIAN_MAJOR_VERSION==0
-		Xapian::QueryParser::FLAG_WILDCARD;
-#else
-		Xapian::QueryParser::FLAG_WILDCARD|Xapian::QueryParser::FLAG_PURE_NOT;
+	// Is this proximity search ? Use the NEAR operator
+	if (selection == Proximity)
+	{
+#ifdef DEBUG
+		cout << "XapianQueryBuilder::on_selection: proximity search on " << field_values.size() << " values" << endl;
 #endif
-	unsigned int valueCount = 0;
-
-	for (vector<string>::const_iterator valueIter = field_values.begin();
+		parsedQuery = Xapian::Query(Xapian::Query::OP_NEAR, field_values.begin(), field_values.end());
+	}
+	else for (vector<string>::const_iterator valueIter = field_values.begin();
 		valueIter != field_values.end(); ++valueIter)
 	{
 		Xapian::Query thisQuery;
 		string pseudoQueryString(*valueIter);
-		bool ignoreFieldNames = false;
-
-		if (field_type == Date)
-		{
-			pseudoQueryString = dateTimeToDateRange(*valueIter, selection);
-			// FIXME: allow applying to specific fields
-			ignoreFieldNames = true;
-		}
+		string defaultPrefix;
 
 		// Does this apply to known field(s) ?
 		for (set<string>::iterator nameIter = field_names.begin();
-			(ignoreFieldNames == false) && (nameIter != field_names.end()); ++nameIter)
+			nameIter != field_names.end(); ++nameIter)
 		{
 			string fieldName(*nameIter);
 
@@ -301,7 +504,25 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 			{
 				// Special consideration apply : the QueryParser will split
 				// application/pdf into two terms which we don't want
-				thisQuery = m_queryParser.parse_query(string("type:") + pseudoQueryString, flags);
+				string withFilter(string("type:") + pseudoQueryString);
+
+				pseudoQueryString = withFilter;
+			}
+			else if (fieldName == "file:size")
+			{
+				if (field_type == Integer)
+				{
+					// FIXME: we can go as far as a double goes
+					pseudoQueryString = sizeToSizeRange(*valueIter, selection,
+						"0", "1000000000000", "b");
+				}
+			}
+			else if (fieldName.find("date") != string::npos)
+			{
+				if (field_type == Date)
+				{
+					pseudoQueryString = dateToDateAndTimeRanges(*valueIter, selection);
+				}
 			}
 			else
 			{
@@ -309,19 +530,27 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 				if (mapIter != m_fieldMapping.end())
 				{
 					// Use this prefix as default
-					thisQuery = m_queryParser.parse_query(pseudoQueryString, flags, mapIter->second);
+					defaultPrefix = mapIter->second;
+				}
+				else
+				{
+					continue;
 				}
 			}
+
+			// FIXME: does each value alway apply to one field only ?
+			break;
 		}
 
-		// Was the query applied to a field ?
-		if (thisQuery.empty() == true)
+		if (pseudoQueryString.empty() == true)
 		{
-			// No, parse as is
-			thisQuery = m_queryParser.parse_query(pseudoQueryString, flags);
+			continue;
 		}
+
+		thisQuery = m_queryParser.parse_query(pseudoQueryString, flags, defaultPrefix);
 #ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: query for this field value is " << thisQuery.get_description() << endl;
+		cout << "XapianQueryBuilder::on_selection: query for this field value is "
+			<< pseudoQueryString << "=" << thisQuery.get_description() << endl;
 #endif
 
 		// Are there multiple values ?
@@ -331,23 +560,21 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		}
 		else
 		{
-			Xapian::Query::op valuesOp = Xapian::Query::OP_OR;
-
-			// Is this proximity search ? Use the NEAR operator
-			// If InSet, OR the values together
-			if ((selection == Proximity) &&
-				(valueCount < 2))
-			{
-				// FIXME: more than two values with OP_NEAR will throw an UnimplementedError
-				// "Can't use NEAR/PHRASE with a subexpression containing NEAR or PHRASE"
-				valuesOp = Xapian::Query::OP_NEAR;
-			}
-			parsedQuery = Xapian::Query(valuesOp, parsedQuery, thisQuery);
+			parsedQuery = Xapian::Query(Xapian::Query::OP_OR, parsedQuery, thisQuery);
 		}
 #ifdef DEBUG
 		cout << "XapianQueryBuilder::on_selection: query for this block is " << parsedQuery.get_description() << endl;
 #endif
 		++valueCount;
+	}
+
+	// Did we manage to parse something ?
+	if (parsedQuery.empty() == true)
+	{
+#ifdef DEBUG
+		cout << "XapianQueryBuilder::on_selection: skipping empty query" << endl;
+#endif
+		return;
 	}
 
 #ifdef DEBUG
@@ -364,7 +591,8 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 
 		if (m_collector.m_collector == And)
 		{
-			if (m_collector.m_negate == true)
+			if ((m_collector.m_negate == true) ||
+				(modifiers.m_negate == true))
 			{
 				queryOp = Xapian::Query::OP_AND_NOT;
 			}
@@ -382,8 +610,21 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 #endif
 }
 
-Xapian::Query XapianQueryBuilder::get_query(void) const
+Xapian::Query XapianQueryBuilder::get_query(void)
 {
+	// Apply a filter ?
+	if (m_contentClassFilter.empty() == false)
+	{
+		Xapian::Query filterQuery = m_queryParser.parse_query(m_contentClassFilter,
+			Xapian::QueryParser::FLAG_BOOLEAN|Xapian::QueryParser::FLAG_BOOLEAN_ANY_CASE);
+		m_fullQuery = Xapian::Query(Xapian::Query::OP_FILTER, m_fullQuery, filterQuery);
+#ifdef DEBUG
+		cout << "XapianQueryBuilder::on_selection: full query now " << m_fullQuery.get_description() << endl;
+#endif
+
+		m_contentClassFilter.clear();
+	}
+
 	return m_fullQuery;
 }
 

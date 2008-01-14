@@ -222,19 +222,31 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 
 		if (xmlStrncmp(pLocalName, BAD_CAST"userQuery", 9) == 0)
 		{
-			string userQueryValue;
+			string userQuery;
 
-			if (process_text_node(reader, userQueryValue) == false)
+			if (process_text_node(reader, userQuery) == false)
 			{
 				return false;
 			}
 
-			query_builder.on_user_query(userQueryValue.c_str());
+			query_builder.on_user_query(userQuery);
 		}
 		else if (xmlStrncmp(pLocalName, BAD_CAST"query", 5) == 0)
 		{
-			query_builder.on_query((const char *)xmlTextReaderGetAttribute(reader, BAD_CAST"content"),
-				(const char *)xmlTextReaderGetAttribute(reader, BAD_CAST"source"));
+			string content, source;
+
+			const char *pContent = (const char *)xmlTextReaderGetAttribute(reader, BAD_CAST"content");
+			if (pContent != NULL)
+			{
+				content = pContent;
+			}
+			const char *pSource = (const char *)xmlTextReaderGetAttribute(reader, BAD_CAST"source");
+			if (pSource != NULL)
+			{
+				source = pSource;
+			}
+
+			query_builder.on_query(content, source);
 		}
 	}
 	else if (depth == 2)
@@ -389,17 +401,17 @@ void XesamQLParser::get_collectible_attributes(xmlTextReaderPtr reader,
 {
 	if (xmlTextReaderHasAttributes(reader) == 1)
 	{
-		const xmlChar *pBoost = xmlTextReaderGetAttribute(reader, BAD_CAST"boost");
-		if (pBoost != NULL)
-		{
-			boost = (float)atof((const char *)pBoost);
-		}
-		
 		const xmlChar *pNegate = xmlTextReaderGetAttribute(reader, BAD_CAST"negate");
 		if ((pNegate != NULL) &&
 			(xmlStrncmp(pNegate, BAD_CAST"true", 4) == 0))
 		{
 			negate = true;
+		}
+
+		const xmlChar *pBoost = xmlTextReaderGetAttribute(reader, BAD_CAST"boost");
+		if (pBoost != NULL)
+		{
+			boost = (float)atof((const char *)pBoost);
 		}
 	}
 }
