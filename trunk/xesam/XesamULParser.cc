@@ -91,7 +91,7 @@ void ULActions::initialize(XesamQueryBuilder *pQueryBuilder)
 	m_fieldSelectionType = None;
 
 	// Signal the query builder we are starting
-	m_pQueryBuilder->on_query(NULL, NULL);
+	m_pQueryBuilder->on_query("", "");
 }
 
 void ULActions::set_collector_action(char const *first, char const *last)

@@ -87,10 +87,10 @@ namespace Dijon
 	virtual void set_collector(const Collector &collector);
 
 	/// Called when the parser has read a userQuery element.
-	virtual void on_user_query(const char *value);
+	virtual void on_user_query(const std::string &user_query);
 
 	/// Called when the parser has read a query block.
-	virtual void on_query(const char *content, const char *source) = 0;
+	virtual void on_query(const std::string &content, const std::string &source) = 0;
 
 	/// Called when the parser has read a selection block.
 	virtual void on_selection(SelectionType selection,

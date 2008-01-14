@@ -18,6 +18,7 @@
 
 #include <iostream>
 
+#include "config.h"
 #ifdef HAVE_BOOST_SPIRIT
 #include "XesamULParser.h"
 #endif
@@ -141,18 +142,20 @@ void XesamQueryBuilder::set_collector(const Collector &collector)
 	m_collector = collector;
 }
 
-void XesamQueryBuilder::on_user_query(const char *value)
+void XesamQueryBuilder::on_user_query(const string &user_query)
 {
 #ifdef DEBUG
 	cout << "XesamQueryBuilder::on_user_query: called" << endl;
 #endif
-	if (value != NULL)
+	if (user_query.empty() == false)
 	{
 #ifdef HAVE_BOOST_SPIRIT_CORE_HPP
 		XesamULParser ulParser;
-		string xesamULQuery(value);
+		string xesamULQuery(user_query);
 
 		ulParser.parse(xesamULQuery, *this);
+#else
+	cerr << "No support for Xesam User Language queries" << endl;
 #endif
 	}
 }
