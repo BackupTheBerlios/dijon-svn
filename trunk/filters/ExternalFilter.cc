@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007,2008 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -113,6 +113,7 @@ static string shell_protect(const string &file_name)
 
 map<string, string> ExternalFilter::m_commandsByType;
 map<string, string> ExternalFilter::m_outputsByType;
+map<string, string> ExternalFilter::m_charsetsByType;
 
 ExternalFilter::ExternalFilter(const string &mime_type) :
 	Filter(mime_type),
@@ -198,6 +199,12 @@ bool ExternalFilter::next_document(void)
 			{
 				m_metaData["mimetype"] = outputIter->second;
 			}
+			// Is it in a known charset ?
+			map<string, string>::const_iterator charsetIter = m_charsetsByType.find(m_mimeType);
+			if (charsetIter != m_charsetsByType.end())
+			{
+				m_metaData["charset"] = charsetIter->second;
+			}
 
 			return true;
 		}
@@ -260,7 +267,7 @@ void ExternalFilter::initialize(const std::string &config_file, set<std::string>
 		// Get all filter elements
 		if (xmlStrncmp(pCurrentNode->name, BAD_CAST"filter", 6) == 0)
 		{
-			string mimeType, command, arguments, output;
+			string mimeType, charset, command, arguments, output;
 
 			for (xmlNode *pCurrentCodecNode = pCurrentNode->children;
 				pCurrentCodecNode != NULL; pCurrentCodecNode = pCurrentCodecNode->next)
@@ -280,6 +287,10 @@ void ExternalFilter::initialize(const std::string &config_file, set<std::string>
 				if (xmlStrncmp(pCurrentCodecNode->name, BAD_CAST"mimetype", 8) == 0)
 				{
 					mimeType = pChildContent;
+				}
+				else if (xmlStrncmp(pCurrentCodecNode->name, BAD_CAST"charset", 7) == 0)
+				{
+					charset = pChildContent;
 				}
 				else if (xmlStrncmp(pCurrentCodecNode->name, BAD_CAST"command", 7) == 0)
 				{
@@ -313,6 +324,11 @@ void ExternalFilter::initialize(const std::string &config_file, set<std::string>
 				if (output.empty() == false)
 				{
 					m_outputsByType[mimeType] = output;
+				}
+				// Charset
+				if (charset.empty() == false)
+				{
+					m_charsetsByType[mimeType] = charset;
 				}
 
 				types.insert(mimeType);

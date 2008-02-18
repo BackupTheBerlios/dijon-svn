@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007,2008 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -102,6 +102,7 @@ namespace Dijon
     protected:
 	static std::map<std::string, std::string> m_commandsByType;
 	static std::map<std::string, std::string> m_outputsByType;
+	static std::map<std::string, std::string> m_charsetsByType;
 	bool m_doneWithDocument;
 
 	virtual void rewind(void);
