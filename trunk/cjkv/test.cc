@@ -1,11 +1,31 @@
+/*
+ *  Copyright 2007,2008 林永忠 Yung-Chung Lin
+ *  Copyright 2008 Fabrice Colin
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
+
 #include <iostream>
-#include <cjkv-tokenizer.hh>
+
+#include "CJKVTokenizer.h"
 
 using namespace std;
-using namespace cjkv;
+using namespace Dijon;
 
 int main() {
-    tokenizer tknzr;
+    CJKVTokenizer tknzr;
     vector<string> token_list;
     vector<string>::iterator token_iter;
     char text[] =
@@ -18,7 +38,7 @@ int main() {
 
     cout << "[Default]" << endl;
     token_list.clear();
-    cout << "Ngram size: "  << tknzr.ngram_size << endl;
+    cout << "Ngram size: "  << tknzr.get_ngram_size() << endl;
     tknzr.tokenize(text_str, token_list);
     cout << "Original string: " << text << endl;
     cout << "Tokenized result: ";
@@ -30,8 +50,8 @@ int main() {
 
     cout << "[Trigram]" << endl;
     token_list.clear();
-    tknzr.ngram_size = 3;
-    cout << "Ngram size: "  << tknzr.ngram_size << endl;
+    tknzr.set_ngram_size(3);
+    cout << "Ngram size: "  << tknzr.get_ngram_size() << endl;
     tknzr.tokenize(text_str, token_list);
     cout << "Original string: " << text << endl;
     cout << "Tokenized result: ";
@@ -43,8 +63,8 @@ int main() {
 
     cout << "[Pentagram]" << endl;
     token_list.clear();
-    tknzr.ngram_size = 5;
-    cout << "Ngram size: "  << tknzr.ngram_size << endl;
+    tknzr.set_ngram_size(5);
+    cout << "Ngram size: "  << tknzr.get_ngram_size() << endl;
     tknzr.tokenize(text_str, token_list);
     cout << "Original string: " << text << endl;
     cout << "Tokenized result: ";
@@ -56,8 +76,8 @@ int main() {
 
     cout << "[Max token count]" << endl;
     token_list.clear();
-    tknzr.max_token_count = 10;
-    cout << "Max token count: " << tknzr.max_token_count << endl;
+    tknzr.set_max_token_count(10);
+    cout << "Max token count: " << tknzr.get_max_token_count() << endl;
     tknzr.tokenize(text_str, token_list);
     cout << "Original string: " << text << endl;
     cout << "Tokenized result: ";
@@ -69,8 +89,8 @@ int main() {
 
     cout << "[Unigram]" << endl;
     token_list.clear();
-    tknzr.ngram_size = 1;
-    tknzr.max_token_count = 0;
+    tknzr.set_ngram_size(1);
+    tknzr.set_max_token_count(0);
     tknzr.tokenize(text_str, token_list);
     cout << "Original string: " << text << endl;
     cout << "Tokenized result: ";

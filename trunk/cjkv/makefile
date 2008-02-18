@@ -1,20 +1,21 @@
 CPP = g++
-CPP_FLAGS = -Wall -O3 -I.
-MODULE = cjkv-tokenizer
+CPP_FLAGS = -g -Wall -DDEBUG -O3 -I. `pkg-config --cflags glib-2.0`
+LIBS = `pkg-config --libs glib-2.0` #-lunicode
+MODULE = CJKVTokenizer
 
 all: build
 
-build: cjkv-tokenizer.o libcjkv-tokenizer.a
+build: CJKVTokenizer.o libCJKVTokenizer.a
 
-cjkv-tokenizer.o:
-	$(CPP) $(CPP_FLAGS) -c cjkv-tokenizer.cc
+CJKVTokenizer.o:
+	$(CPP) $(CPP_FLAGS) -c CJKVTokenizer.cc
 
-libcjkv-tokenizer.a: cjkv-tokenizer.o
-	ar crv $@ cjkv-tokenizer.o
+libCJKVTokenizer.a: CJKVTokenizer.o
+	ar crv $@ CJKVTokenizer.o
 	ranlib $@
 
 test:
-	$(CPP) $(CPP_FLAGS) -o $@ $@.cc -L. -lcjkv-tokenizer -lunicode
+	$(CPP) $(CPP_FLAGS) -o $@ $@.cc -L. -lCJKVTokenizer $(LIBS)
 	./$@
 
 clean:
