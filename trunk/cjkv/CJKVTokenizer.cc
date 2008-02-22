@@ -282,7 +282,7 @@ bool CJKVTokenizer::has_cjkv_only(const std::string &str)
 		{
 			unsigned char p[sizeof(unicode_char_t) + 1];
 #ifdef DEBUG
-			cout << "CJKVTokenizer::has_cjkv_onlyCJKVTokenizer::has_cjkv_only: '"
+			cout << "CJKVTokenizer::has_cjkv_only: '"
 				<< _unicode_to_char(temp_uchar_list[i], p) << "' is not CJKV" << endl;
 #endif
 			return false;
