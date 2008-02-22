@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007, 2008 Fabrice Colin
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -16,19 +16,11 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <iostream>
-
-#include "config.h"
-#ifdef HAVE_BOOST_SPIRIT
-#include "XesamULParser.h"
-#endif
+#include "XesamLog.h"
 #include "XesamQueryBuilder.h"
 
 using std::string;
 using std::set;
-using std::cout;
-using std::cerr;
-using std::endl;
 
 using namespace Dijon;
 
@@ -140,23 +132,5 @@ XesamQueryBuilder::~XesamQueryBuilder()
 void XesamQueryBuilder::set_collector(const Collector &collector)
 {
 	m_collector = collector;
-}
-
-void XesamQueryBuilder::on_user_query(const string &user_query)
-{
-#ifdef DEBUG
-	cout << "XesamQueryBuilder::on_user_query: called" << endl;
-#endif
-	if (user_query.empty() == false)
-	{
-#ifdef HAVE_BOOST_SPIRIT_CORE_HPP
-		XesamULParser ulParser;
-		string xesamULQuery(user_query);
-
-		ulParser.parse(xesamULQuery, *this);
-#else
-	cerr << "No support for Xesam User Language queries" << endl;
-#endif
-	}
 }
 

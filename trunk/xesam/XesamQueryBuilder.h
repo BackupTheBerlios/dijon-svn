@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007,2008 Fabrice Colin
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -87,7 +87,7 @@ namespace Dijon
 	virtual void set_collector(const Collector &collector);
 
 	/// Called when the parser has read a userQuery element.
-	virtual void on_user_query(const std::string &user_query);
+	virtual void on_user_query(const std::string &user_query) = 0;
 
 	/// Called when the parser has read a query block.
 	virtual void on_query(const std::string &content, const std::string &source) = 0;

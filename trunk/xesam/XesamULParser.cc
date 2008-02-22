@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007,2008 Fabrice Colin
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -16,7 +16,7 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <iostream>
+#include <sstream>
 #include <fstream>
 #include <boost/spirit/core.hpp>
 #include <boost/spirit/actor/push_back_actor.hpp>
@@ -24,11 +24,11 @@
 #include <boost/spirit/utility/chset.hpp>
 #include <boost/spirit/utility/confix.hpp>
 
+#include "XesamLog.h"
 #include "XesamULParser.h"
 
-using std::cout;
-using std::endl;
 using std::string;
+using std::stringstream;
 using std::set;
 using std::map;
 using std::vector;
@@ -99,9 +99,7 @@ void ULActions::set_collector_action(char const *first, char const *last)
 	string str(first, last);
 	Collector collector(And, false, 0.0);
 
-#ifdef DEBUG
-	cout << "set_collector_action: found " << str << endl;
-#endif
+	XESAM_LOG_DEBUG("ULActions::set_collector_action" , "found " + str);
 	if ((str == "or") ||
 		(str == "Or") ||
 		(str == "oR") ||
@@ -120,9 +118,7 @@ void ULActions::set_collector_action(char const *first, char const *last)
 
 void ULActions::on_statement(char const *first, char const *last)
 {
-#ifdef DEBUG
-	cout << "on_statement: called" << endl;
-#endif
+	XESAM_LOG_DEBUG("ULActions::on_statement", "called");
 	if (m_foundCollector == true)
 	{
 		m_foundCollector = false;
@@ -151,9 +147,7 @@ void ULActions::on_pom_action(char const *first, char const *last)
 {
 	string str(first, last);
 
-#ifdef DEBUG
-	cout << "on_pom_action: found " << str << endl;
-#endif
+	XESAM_LOG_DEBUG("ULActions::on_pom_action", "found " + str);
 	if (str == "-")
 	{
 		m_negate = true;
@@ -169,9 +163,7 @@ void ULActions::on_field_name_action(char const *first, char const *last)
 {
 	string str(first, last);
 
-#ifdef DEBUG
-	cout << "on_field_name_action: found " << str << endl;
-#endif
+	XESAM_LOG_DEBUG("ULActions::on_field_name_action", "found " + str);
 	if (str.empty() == true)
 	{
 		return;
@@ -185,9 +177,7 @@ void ULActions::on_relation_action(char const *first, char const *last)
 {
 	string str(first, last);
 
-#ifdef DEBUG
-	cout << "on_relation_action: found " << str << endl;
-#endif
+	XESAM_LOG_DEBUG("ULActions::on_relation_action", "found " + str);
 	if ((str.empty() == true) ||
 		(m_fieldName.empty() == true))
 	{
@@ -229,9 +219,7 @@ void ULActions::on_field_value_action(char const *first, char const *last)
 	SimpleType type = String; 
 	Modifiers modifiers;
 
-#ifdef DEBUG
-	cout << "on_selection_action: found " << str << endl;
-#endif
+	XESAM_LOG_DEBUG("ULActions::on_selection_action", "found " + str);
 	if ((str.empty() == true) ||
 		(m_fieldName.empty() == true))
 	{
@@ -259,9 +247,7 @@ void ULActions::on_phrase_action(char const *first, char const *last)
 	SimpleType type = String; 
 	Modifiers modifiers;
 
-#ifdef DEBUG
-	cout << "on_phrase_action: found " << str << endl;
-#endif
+	XESAM_LOG_DEBUG("ULActions::on_phrase_action", "found " + str);
 	if (str.empty() == true)
 	{
 		return;
@@ -488,6 +474,7 @@ XesamULParser::~XesamULParser()
 bool XesamULParser::parse(const string &xesam_query,
 	XesamQueryBuilder &query_builder)
 {
+	stringstream msg;
 	string::size_type parsedLength = 0;
 	bool fullParsing = false;
 
@@ -498,9 +485,7 @@ bool XesamULParser::parse(const string &xesam_query,
 			xesam_ul_skip_grammar skip;
 			xesam_ul_grammar query;
 
-#ifdef DEBUG
-			cout << "XesamULParser::parse: query is " << xesam_query << endl;
-#endif
+			XESAM_LOG_DEBUG("XesamULParser::parse", "query is " + xesam_query);
 			// Initialize
 			ULActions::initialize(&query_builder);
 
@@ -511,28 +496,28 @@ bool XesamULParser::parse(const string &xesam_query,
 				parse_info<> parseInfo = boost::spirit::parse(xesam_query.c_str() + parsedLength, query, skip);
 				fullParsing = parseInfo.full;
 				parsedLength += parseInfo.length;
-#ifdef DEBUG
-				cout << "XesamULParser::parse: status is " << fullParsing << ", length " << parseInfo.length << endl;
-#endif
+
+				msg.str("");
+				msg << "status is " << fullParsing << ", length " << parseInfo.length;
+				XESAM_LOG_DEBUG("XesamULParser::parse", msg.str());
 			}
 		}
 		catch (const exception &e)
 		{
-#ifdef DEBUG
-			cout << "XesamULParser::parse: caught exception ! " << e.what() << endl;
-#endif
+			msg.str("");
+			msg << "caught exception ! " << e.what();
+			XESAM_LOG_ERROR("XesamULParser::parse", msg.str());
 			fullParsing = false;
 		}
 		catch (...)
 		{
-#ifdef DEBUG
-			cout << "XesamULParser::parse: caught unknown exception !" << endl;
-#endif
+			XESAM_LOG_ERROR("XesamULParser::parse", "caught unknown exception !");
 			fullParsing = false;
 		}
-#ifdef DEBUG
-		cout << "XesamULParser::parse: final status is " << fullParsing << ", length " << parsedLength << endl;
-#endif
+
+		msg.str("");
+		msg << "final status is " << fullParsing << ", length " << parsedLength;
+		XESAM_LOG_DEBUG("XesamULParser::parse", msg.str());
 
 		pthread_mutex_unlock(&m_mutex);
 	}

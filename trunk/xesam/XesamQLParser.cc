@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007,2008 Fabrice Colin
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -16,17 +16,16 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <iostream>
+#include <sstream>
 
+#include "XesamLog.h"
 #include "XesamQLParser.h"
 
 using std::string;
+using std::stringstream;
 using std::set;
 using std::map;
 using std::vector;
-using std::cout;
-using std::cerr;
-using std::endl;
 
 using namespace Dijon;
 
@@ -56,13 +55,11 @@ bool XesamQLParser::parse(const string &xesam_query,
 		xesam_query.length(), XML_CHAR_ENCODING_UTF8);
 	if (pBuffer == NULL)
 	{
-		cerr << "XesamQLParser: couldn't create input buffer" << endl;
+		XESAM_LOG_ERROR("XesamQLParser::parser", "couldn't create input buffer");
 		return false;
 	}
 
-#ifdef DEBUG
-	cout << "XesamQLParser::parse: query is " << xesam_query << endl;
-#endif
+	XESAM_LOG_DEBUG("XesamQLParser::parse", "query is " + xesam_query);
 	parsedQuery = parse_input(pBuffer, query_builder);
 
 	xmlFreeParserInputBuffer(pBuffer);
@@ -83,7 +80,7 @@ bool XesamQLParser::parse_file(const string &xesam_query_file,
 		XML_CHAR_ENCODING_UTF8);
 	if (pBuffer == NULL)
 	{
-		cerr << "XesamQLParser: couldn't create input buffer" << endl;
+		XESAM_LOG_ERROR("XesamQLParser::parse_file", "couldn't create input buffer");
 		return false;
 	}
 
@@ -101,7 +98,7 @@ bool XesamQLParser::parse_input(xmlParserInputBufferPtr buffer,
 
 	if (buffer == NULL)
 	{
-		cerr << "XesamQLParser: couldn't create input buffer" << endl;
+		XESAM_LOG_ERROR("XesamQLParser::parse_input", "couldn't create input buffer");
 		return false;
 	}
 
@@ -134,7 +131,7 @@ bool XesamQLParser::parse_input(xmlParserInputBufferPtr buffer,
 
 		if (parsedQuery == false)
 		{
-			cerr << "XesamQLParser: failed to parse input" << endl;
+			XESAM_LOG_ERROR("XesamQLParser::parse_input", "failed to parse input");
 		}
 	}
 
@@ -144,12 +141,12 @@ bool XesamQLParser::parse_input(xmlParserInputBufferPtr buffer,
 bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 	XesamQueryBuilder &query_builder)
 {
+	stringstream msg;
 	int type = xmlTextReaderNodeType(reader);
 	int depth = xmlTextReaderDepth(reader);
 
-#ifdef DEBUG
-	cout << "XesamQLParser::process_node: depth " << depth << ", node type " << type << endl;
-#endif
+	msg << "depth " << depth << ", node type " << type;
+	XESAM_LOG_DEBUG("XesamQLParser::process_node", msg.str());
 	if (type == XML_READER_TYPE_END_ELEMENT)
 	{
 		if (m_depth > depth)
@@ -176,9 +173,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 						query_builder.set_collector(m_collector);
 					}
 
-#ifdef DEBUG
-					cout << "XesamQLParser::process_node: transitioning out of a collector type" << endl;
-#endif
+					XESAM_LOG_DEBUG("XesamQLParser::process_node", "transitioning out of a collector type");
 				}
 			}
 		}
@@ -203,14 +198,16 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 		return true;
 	}
 
-#ifdef DEBUG
-	cout << "XesamQLParser::process_node: node name " << pLocalName << " " << xmlTextReaderHasValue(reader) << endl;
-#endif
+	msg.str("");
+	msg << "node name " << pLocalName << " " << xmlTextReaderHasValue(reader);
+	XESAM_LOG_DEBUG("XesamQLParser::process_node", msg.str());
 	if (depth == 0)
 	{
 		if (xmlStrncmp(pLocalName, BAD_CAST"request", 7) != 0)
 		{
-			cerr << "XesamQLParser: expected request, found " << pLocalName << endl;
+			msg.str("");
+			msg << "expected request, found " << pLocalName;
+			XESAM_LOG_ERROR("XesamQLParser::process_node", msg.str());
 			return false;
 		}
 
@@ -257,7 +254,9 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 		if ((is_collector_type(pLocalName, reader, query_builder) == false) &&
 			(is_selection_type(pLocalName, reader) == false))
 		{
-			cerr << "XesamQLParser: expected a collector or a selection type, found " << pLocalName << endl;
+			msg.str("");
+			msg << "expected a collector or a selection type, found " << pLocalName;
+			XESAM_LOG_ERROR("XesamQLParser::process_node", msg.str());
 			return false;
 		}
 	}
@@ -301,7 +300,7 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			}
 			else if (m_selection == FullText)
 			{
-				cerr << "XesamQLParser: full text only applies to String" << endl;
+				XESAM_LOG_ERROR("XesamQLParser::process_node", "full text only applies to String");
 				return false;
 			}
 			else if (xmlStrncmp(pLocalName, BAD_CAST"integer", 7) == 0)
@@ -322,8 +321,9 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			}
 			else
 			{
-				cerr << "XesamQLParser: expected a field or simple type in selector "
-					<< m_selection << ", found " << pLocalName << endl;
+				msg.str("");
+				msg << "expected a field or simple type in selector " << m_selection << ", found " << pLocalName;
+				XESAM_LOG_ERROR("XesamQLParser::process_node", msg.str());
 				return false;
 			}
 
@@ -333,13 +333,15 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 				(m_selection != Proximity) &&
 				(m_fieldValues.empty() == false))
 			{
-				cerr << "XesamQLParser: a simple type was already provided for selection type " << m_selection << endl;
+				msg.str("");
+				msg << "a simple type was already provided for selection type " << m_selection;
+				XESAM_LOG_ERROR("XesamQLParser::proces_node", msg.str());
 				return false;
 			}
 			if ((m_selection == InSet) &&
 				(fieldType != m_fieldType))
 			{
-				cerr << "XesamQLParser: the same simple type should be used throughout a set" << endl;
+				XESAM_LOG_ERROR("XesamQLParser::process_node", "the same simple type should be used throughout a set");
 				return false;
 			}
 
@@ -354,9 +356,10 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 				{
 					m_fieldValues.push_back(fieldValue);
 				}
-#ifdef DEBUG
-				else cout << "XesamQLParser::process_node: simple type has no value" << endl;
-#endif
+				else
+				{
+					XESAM_LOG_DEBUG("XesamQLParser::process_node", "simple type has no value");
+				}
 			}
 		}
 		else
@@ -364,7 +367,9 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 			if ((is_collector_type(pLocalName, reader, query_builder) == false) &&
 				(is_selection_type(pLocalName, reader) == false))
 			{
-				cerr << "XesamQLParser: expected a collector or a selection type, found " << pLocalName << endl;
+				msg.str("");
+				msg << "xpected a collector or a selection type, found " << pLocalName;
+				XESAM_LOG_ERROR("XesamQLParser::process_node", msg.str());
 				return false;
 			}
 		}
@@ -375,6 +380,8 @@ bool XesamQLParser::process_node(xmlTextReaderPtr reader,
 
 bool XesamQLParser::process_text_node(xmlTextReaderPtr reader, string &value)
 {
+	stringstream msg;
+
 	// Read the next node
 	xmlTextReaderRead(reader);
 
@@ -391,7 +398,8 @@ bool XesamQLParser::process_text_node(xmlTextReaderPtr reader, string &value)
 		}
 	}
 
-	cerr << "XesamQLParser: expected a text node, found a node of type " << type << endl;
+	msg << "expected a text node, found a node of type " << type;
+	XESAM_LOG_ERROR("XesamQLParser:process_text_node", msg.str());
 
 	return false;
 }
@@ -569,9 +577,7 @@ void XesamQLParser::end_of_selection_type(XesamQueryBuilder &query_builder)
 		m_fieldType,
 		m_modifiers);
 	m_selection = None;
-#ifdef DEBUG
-	cout << "XesamQLParser::end_of_selection_type: transitioning out of a selection type" << endl;
-#endif
+	XESAM_LOG_DEBUG("XesamQLParser::end_of_selection_type", "transitioning out of a selection type");
 }
 
 void XesamQLParser::get_modifier_attributes(xmlTextReaderPtr reader)

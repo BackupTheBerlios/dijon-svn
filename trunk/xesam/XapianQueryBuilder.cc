@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007,2008 Fabrice Colin
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -94,18 +94,21 @@ static time_t mktime_from_utc (struct tm *t)
 }
 #define timegm(T) mktime_from_utc(T)
 #endif
-#include <iostream>
+#include <sstream>
 #include <algorithm>
 
+#include "XesamLog.h"
+#ifdef HAVE_BOOST_SPIRIT
+#include "XesamULParser.h"
+#endif
 #include "XapianQueryBuilder.h"
 
 using std::string;
+using std::stringstream;
 using std::map;
 using std::set;
 using std::vector;
 using std::for_each;
-using std::cout;
-using std::endl;
 
 using namespace Dijon;
 
@@ -178,9 +181,7 @@ static string sizeToSizeRange(const string &size, SelectionType selection,
 		sizeRange += max;
 	}
 	sizeRange += suffix;
-#ifdef DEBUG
-	cout << "XapianQueryBuilder::sizeToSizeRange: " << sizeRange << endl;
-#endif
+	XESAM_LOG_DEBUG("XapianQueryBuilder::sizeToSizeRange", sizeRange);
 
 	return sizeRange;
 }
@@ -287,9 +288,7 @@ static string classesToFilters(const set<string> &xesamClasses)
 		for_each(className.begin(),className.end(), ToLower());
 		trimSpaces(className);
 
-#ifdef DEBUG
-		cout << "XapianQueryBuilder::classesToFilters: " << className << endl;
-#endif
+		XESAM_LOG_DEBUG("XapianQueryBuilder::classesToFilters", className);
 		/* Only the most obvious classes are supported for the time being. For reference, the full list is
 		 * Alarm
 		 * Archive
@@ -365,11 +364,25 @@ XapianQueryBuilder::~XapianQueryBuilder()
 {
 }
 
+void XapianQueryBuilder::on_user_query(const string &user_query)
+{
+	XESAM_LOG_DEBUG("XapianQueryBuilder::on_user_query", "called");
+	if (user_query.empty() == false)
+	{
+#ifdef HAVE_BOOST_SPIRIT
+		XesamULParser ulParser;
+		string xesamULQuery(user_query);
+
+		ulParser.parse(xesamULQuery, *this);
+#else
+	XESAM_LOG_ERROR("XapianQueryBuilder::on_user_query", "no support for Xesam User Language queries");
+#endif
+	}
+}
+
 void XapianQueryBuilder::on_query(const string &content, const string &source)
 {
-#ifdef DEBUG
-	cout << "XapianQueryBuilder::on_query: called" << endl;
-#endif
+	XESAM_LOG_DEBUG("XapianQueryBuilder::on_query", "called");
 	m_firstSelection = true;
 
 	if (content.empty() == false)
@@ -382,9 +395,7 @@ void XapianQueryBuilder::on_query(const string &content, const string &source)
 	if (source.empty() == false)
 	{
 		// FIXME: handle this
-#ifdef DEBUG
-		cout << "XapianQueryBuilder::on_query: no support for source yet" << endl;
-#endif
+		XESAM_LOG_DEBUG("XapianQueryBuilder::on_query", "no support for source yet");
 	}
 }
 
@@ -395,6 +406,7 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 	const Modifiers &modifiers)
 {
 	Xapian::Query parsedQuery;
+	stringstream msg;
 	// FIXME: we may not actually need all these flags
 	unsigned int flags = Xapian::QueryParser::FLAG_BOOLEAN|Xapian::QueryParser::FLAG_PHRASE|
 		Xapian::QueryParser::FLAG_LOVEHATE|Xapian::QueryParser::FLAG_BOOLEAN_ANY_CASE|
@@ -405,17 +417,15 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 #endif
 	unsigned int valueCount = 0;
 
-#ifdef DEBUG
-	cout << "XapianQueryBuilder::on_selection: called on "
-		<< field_names.size() << " field(s)" << endl;
-#endif
+	msg << "called on " << field_names.size() << " field(s)";
+	XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", msg.str());
 	if ((selection == None) ||
 		(selection == RegExp))
 	{
 		// Ignore those selection types
-#ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: ignoring selection type " << selection << endl;
-#endif
+		msg.str("");
+		msg << "ignoring selection type " << selection;
+		XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", msg.str());
 		return;
 	}
 
@@ -425,9 +435,7 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		(selection == InSet) ||
 		(selection == Proximity))
 	{
-#ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: performing full text search" << endl;
-#endif
+		XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", "performing full text search");
 	}
 	else if (selection == Category)
 	{
@@ -447,9 +455,7 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		if (modifiers.m_source.empty() == false)
 		{
 			// FIXME: handle this
-#ifdef DEBUG
-			cout << "XapianQueryBuilder::on_selection: no support for category source yet" << endl;
-#endif
+			XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", "no support for category source yet");
 		}
 	}
 	else if ((selection == LessThan) ||
@@ -460,9 +466,7 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		if ((field_type != Integer) &&
 			(field_type != Date))
 		{
-#ifdef DEBUG
-			cout << "XapianQueryBuilder::on_selection: numerical operators only work on integers and dates" << endl;
-#endif
+			XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", "numerical operators only work on integers and dates");
 			return;
 		}
 	}
@@ -470,18 +474,16 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 	{
 		// The rest deals with numerical values
 		// FIXME: handle them
-#ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: no support for numerical values yet" << endl;
-#endif
+		XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", "no support for numerical values yet");
 		return;
 	}
 
 	// Is this proximity search ? Use the NEAR operator
 	if (selection == Proximity)
 	{
-#ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: proximity search on " << field_values.size() << " values" << endl;
-#endif
+		msg.str("");
+		msg << "proximity search on " << field_values.size() << " values";
+		XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", msg.str());
 		parsedQuery = Xapian::Query(Xapian::Query::OP_NEAR, field_values.begin(), field_values.end());
 	}
 	else for (vector<string>::const_iterator valueIter = field_values.begin();
@@ -548,10 +550,8 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		}
 
 		thisQuery = m_queryParser.parse_query(pseudoQueryString, flags, defaultPrefix);
-#ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: query for this field value is "
-			<< pseudoQueryString << "=" << thisQuery.get_description() << endl;
-#endif
+		XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", "query for this field value is "
+			+ pseudoQueryString + "=" + thisQuery.get_description());
 
 		// Are there multiple values ?
 		if (valueCount == 0)
@@ -562,24 +562,25 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		{
 			parsedQuery = Xapian::Query(Xapian::Query::OP_OR, parsedQuery, thisQuery);
 		}
-#ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: query for this block is " << parsedQuery.get_description() << endl;
-#endif
+
+		msg.str("");
+		msg << "query for this block is " << parsedQuery.get_description();
+		XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", msg.str());
+
 		++valueCount;
 	}
 
 	// Did we manage to parse something ?
 	if (parsedQuery.empty() == true)
 	{
-#ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: skipping empty query" << endl;
-#endif
+		XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", "skipping empty query");
 		return;
 	}
 
-#ifdef DEBUG
-	cout << "XapianQueryBuilder::on_selection: collector is " << m_collector.m_collector << endl;
-#endif
+	msg.str("");
+	msg << "collector is " << m_collector.m_collector;
+	XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", msg.str());
+
 	if (m_firstSelection == true)
 	{
 		m_fullQuery = parsedQuery;
@@ -605,9 +606,7 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 		Xapian::Query fullerQuery = Xapian::Query(queryOp, m_fullQuery, parsedQuery);
 		m_fullQuery = fullerQuery;
 	}
-#ifdef DEBUG
-	cout << "XapianQueryBuilder::on_selection: full query now " << m_fullQuery.get_description() << endl;
-#endif
+	XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", "full query now " + m_fullQuery.get_description());
 }
 
 Xapian::Query XapianQueryBuilder::get_query(void)
@@ -618,9 +617,7 @@ Xapian::Query XapianQueryBuilder::get_query(void)
 		Xapian::Query filterQuery = m_queryParser.parse_query(m_contentClassFilter,
 			Xapian::QueryParser::FLAG_BOOLEAN|Xapian::QueryParser::FLAG_BOOLEAN_ANY_CASE);
 		m_fullQuery = Xapian::Query(Xapian::Query::OP_FILTER, m_fullQuery, filterQuery);
-#ifdef DEBUG
-		cout << "XapianQueryBuilder::on_selection: full query now " << m_fullQuery.get_description() << endl;
-#endif
+		XESAM_LOG_DEBUG("XapianQueryBuilder::on_selection", "full query now " + m_fullQuery.get_description());
 
 		m_contentClassFilter.clear();
 	}
