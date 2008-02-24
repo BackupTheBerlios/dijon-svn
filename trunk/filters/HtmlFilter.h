@@ -139,7 +139,7 @@ namespace Dijon
 			bool m_isValid;
 			bool m_findAbstract;
 			unsigned int m_textPos;
-			std::string m_lastHash;
+			std::string m_lastText;
 			bool m_inHead;
 			bool m_foundHead;
 			bool m_appendToTitle;

@@ -16,13 +16,6 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#ifndef _XOPEN_SOURCE
-#define _XOPEN_SOURCE
-#include <unistd.h>
-#undef _XOPEN_SOURCE
-#else
-#include <unistd.h>
-#endif
 #include <libxml/xmlerror.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/HTMLtree.h>
@@ -31,8 +24,6 @@
 #include <utility>
 
 #include "HtmlFilter.h"
-
-#define CRYPT_SALT "$1$htmlfilt$"
 
 using std::cout;
 using std::cerr;
@@ -46,6 +37,8 @@ using std::inserter;
 
 using namespace std;
 using namespace Dijon;
+
+static const unsigned int HASH_LEN = ((4 * 8 + 5) / 6);
 
 #ifdef _DYNAMIC_DIJON_HTMLFILTER
 bool get_filter_types(std::set<std::string> &mime_types)
@@ -136,30 +129,6 @@ static unsigned int trimSpaces(string &str)
 	return count;
 }
 
-static string hashString(const string &str)
-{
-	if (str.empty() == true)
-	{
-		return "";
-	}
-
-	char *hashedString = crypt(str.c_str(), CRYPT_SALT);
-	if (hashedString == NULL)
-	{
-		return NULL;
-	}
-
-	if (strlen(hashedString) > strlen(CRYPT_SALT))
-	{
-		if (strncmp(hashedString, CRYPT_SALT, strlen(CRYPT_SALT)) == 0)
-		{
-			return hashedString + strlen(CRYPT_SALT);
-		}
-	}
-
-	return hashedString;
-}
-
 static string findCharset(const string &text)
 {
 	// Is a charset specified ?
@@ -246,8 +215,8 @@ static void startHandler(void *pData, const char *pElementName, const char **pAt
 		return;
 	}
 
-	// Reset the text hash
-	pState->m_lastHash.clear();
+	// Reset this
+	pState->m_lastText.clear();
 
 	// What tag is this ?
 	string tagName(pElementName);
@@ -460,13 +429,12 @@ static void charactersHandler(void *pData, const char *pText, int textLen)
 
 	// For some reason, this handler might be called twice for the same text !
 	// See http://mail.gnome.org/archives/xml/2002-September/msg00089.html
-	string textHash(hashString(text));
-	if (pState->m_lastHash == textHash)
+	if (pState->m_lastText == text)
 	{
 		// Ignore this
 		return;
 	}
-	pState->m_lastHash = textHash;
+	pState->m_lastText = text;
 
 	// Append current text
 	// FIXME: convert to UTF-8 or Latin 1 ?
