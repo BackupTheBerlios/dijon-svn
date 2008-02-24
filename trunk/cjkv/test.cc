@@ -124,7 +124,20 @@ int main() {
     }
     cout << endl << endl;
 
-    string cjkv_str = "這是CJKV字串";
+    string cjkv_str = "这个商店是买中国画儿的";
+    cout << "[Tokenize]" << endl;
+    token_list.clear();
+    tknzr.set_ngram_size(2);
+    cout << "Ngram size: "  << tknzr.get_ngram_size() << endl;
+    tknzr.tokenize(cjkv_str, token_list);
+    cout << "Original string: " << cjkv_str << endl;
+    cout << "Tokenized result: ";
+    for (token_iter = token_list.begin();
+         token_iter != token_list.end(); token_iter++) {
+        cout << "[" << *token_iter << "] ";
+    }
+    cout << endl << endl;
+
     string pure_cjkv_str =
         "這個字串只含中日韓。"
         "コンピューターの機能を、音響・映像・作品制御などに利用する芸術の総称。"

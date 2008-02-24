@@ -18,7 +18,6 @@
  */
 
 #include <cassert>
-#include <iostream>
 
 #include "CJKVTokenizer.h"
 
@@ -281,11 +280,12 @@ bool CJKVTokenizer::has_cjkv_only(const std::string &str)
 		if (!(UTF8_IS_CJKV(temp_uchar_list[i])))
 		{
 			unsigned char p[sizeof(unicode_char_t) + 1];
-#ifdef DEBUG
-			cout << "CJKVTokenizer::has_cjkv_only: '"
-				<< _unicode_to_char(temp_uchar_list[i], p) << "' is not CJKV" << endl;
-#endif
-			return false;
+
+			_unicode_to_char(temp_uchar_list[i], p);
+			if (isspace((int)p[0]) == 0)
+			{
+				return false;
+			}
 		}
 	}
 	return true;
