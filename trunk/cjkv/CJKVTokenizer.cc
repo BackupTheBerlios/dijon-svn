@@ -17,6 +17,7 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <cctype>
 #include <cassert>
 
 #include "CJKVTokenizer.h"
@@ -195,7 +196,8 @@ void CJKVTokenizer::tokenize(const string &str, vector<string> &token_list)
 			while (j < temp_token_list.size())
 			{
 				unsigned char *p = (unsigned char*) temp_token_list[j].c_str();
-				if ((*p == ' ') || (UTF8_IS_CJKV(temp_uchar_list[j])))
+				if (((isascii((int)p[0]) != 0) && (isalnum((int)p[0]) == 0))
+					|| (UTF8_IS_CJKV(temp_uchar_list[j])))
 				{
 					j++;
 					break;
