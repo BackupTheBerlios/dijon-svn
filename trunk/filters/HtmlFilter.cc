@@ -22,6 +22,7 @@
 #include <iostream>
 #include <algorithm>
 #include <utility>
+#include <cstring>
 
 #include "HtmlFilter.h"
 

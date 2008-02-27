@@ -37,6 +37,7 @@
 #endif
 #include <unistd.h>
 #include <iostream>
+#include <cstring>
 #include <libxml/xmlreader.h>
 
 #include "ExternalFilter.h"
