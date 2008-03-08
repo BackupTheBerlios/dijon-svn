@@ -90,10 +90,35 @@ static int unicode_strlen(const char *p, int max)
 using namespace std;
 using namespace Dijon;
 
+static void _split_string(string str, const string &delim,
+	vector<string> &list)
+{
+	list.clear();
+
+	string::size_type cut_at = 0;
+	while ((cut_at = str.find_first_of(delim)) != str.npos)
+	{
+		if (cut_at > 0)
+		{
+			list.push_back(str.substr(0,cut_at));
+		}
+		str = str.substr(cut_at+1);
+	}
+
+	if (str.length() > 0)
+	{
+		list.push_back(str);
+	}
+}
+
 static inline unsigned char *_unicode_to_char(unicode_char_t &uchar,
 	unsigned char *p) 
 {
-	assert(p != NULL);
+	if (p == NULL)
+	{
+		return NULL;
+	}
+
 	memset(p, 0, sizeof(unicode_char_t) + 1);
 	if (uchar < 0x80)
 	{
@@ -120,6 +145,30 @@ static inline unsigned char *_unicode_to_char(unicode_char_t &uchar,
 
 	return p;
 }
+
+class VectorTokensHandler : public CJKVTokenizer::TokensHandler
+{
+	public:
+		VectorTokensHandler(vector<string> &token_list) :
+			CJKVTokenizer::TokensHandler(),
+			m_token_list(token_list)
+		{
+		}
+
+		virtual ~VectorTokensHandler()
+		{
+		}
+
+		virtual bool handle_token(const string &tok, bool is_cjkv)
+		{
+			m_token_list.push_back(tok);
+			return true;
+		}
+
+	protected:
+		vector<string> &m_token_list;
+
+};
 
 CJKVTokenizer::CJKVTokenizer() :
 	m_nGramSize(2),
@@ -154,9 +203,17 @@ unsigned int CJKVTokenizer::get_max_token_count(void) const
 
 void CJKVTokenizer::tokenize(const string &str, vector<string> &token_list)
 {
+	VectorTokensHandler handler(token_list);
+
+	tokenize(str, handler);
+}
+
+void CJKVTokenizer::tokenize(const string &str, TokensHandler &handler)
+{
 	string token_str;
 	vector<string> temp_token_list;
 	vector<unicode_char_t> temp_uchar_list;
+	unsigned int tokens_count = 0;
 
 	split(str, temp_token_list);
 	split(str, temp_uchar_list);
@@ -164,7 +221,7 @@ void CJKVTokenizer::tokenize(const string &str, vector<string> &token_list)
 	for (unsigned int i = 0; i < temp_token_list.size();)
 	{
 		if ((m_maxTokenCount > 0) &&
-			(token_list.size() >= m_maxTokenCount))
+			(tokens_count >= m_maxTokenCount))
 		{
 			break;
 		}
@@ -174,7 +231,7 @@ void CJKVTokenizer::tokenize(const string &str, vector<string> &token_list)
 			for (unsigned int j = i; j < i + m_nGramSize; j++)
 			{
 				if ((m_maxTokenCount > 0) &&
-					(token_list.size() >= m_maxTokenCount))
+					(tokens_count >= m_maxTokenCount))
 				{
 					break;
 				}
@@ -185,7 +242,10 @@ void CJKVTokenizer::tokenize(const string &str, vector<string> &token_list)
 				if (UTF8_IS_CJKV(temp_uchar_list[j]))
 				{
 					token_str += temp_token_list[j];
-					token_list.push_back(token_str);
+					if (handler.handle_token(token_str, true) == true)
+					{
+						++tokens_count;
+					}
 				}
 			}
 			i++;
@@ -207,13 +267,16 @@ void CJKVTokenizer::tokenize(const string &str, vector<string> &token_list)
 			}
 			i = j;
 			if ((m_maxTokenCount > 0) &&
-				(token_list.size() >= m_maxTokenCount))
+				(tokens_count >= m_maxTokenCount))
 			{
 				break;
 			}
 			if(token_str.length() > 0)
 			{
-				token_list.push_back(token_str);
+				if (handler.handle_token(token_str, false) == true)
+				{
+					++tokens_count;
+				}
 			}
 		}
 	}
@@ -255,7 +318,22 @@ void CJKVTokenizer::split(const string &str, vector<unicode_char_t> &token_list)
 	}
 }
 
-bool CJKVTokenizer::has_cjkv(const std::string &str)
+void CJKVTokenizer::segment(string str, vector<string> &token_segment)
+{
+	vector<string> token_list;
+
+	for (string::iterator it = str.begin(); it != str.end(); ++it)
+	{
+		if ((*it == '\n') || (*it == '\r') || (*it == '\t'))
+		{
+			*it = ' ';
+		}
+	}
+
+	_split_string(str, " ", token_segment);
+}
+
+bool CJKVTokenizer::has_cjkv(const string &str)
 {
 	vector<unicode_char_t> temp_uchar_list;
 
@@ -271,7 +349,7 @@ bool CJKVTokenizer::has_cjkv(const std::string &str)
 	return false;
 }
 
-bool CJKVTokenizer::has_cjkv_only(const std::string &str)
+bool CJKVTokenizer::has_cjkv_only(const string &str)
 {
 	vector<unicode_char_t> temp_uchar_list;
 

@@ -37,6 +37,15 @@ namespace Dijon
 			CJKVTokenizer();
 			~CJKVTokenizer();
 
+			class TokensHandler
+			{
+				public:
+					TokensHandler() {}
+					virtual ~TokensHandler() {}
+
+					virtual bool handle_token(const std::string &tok, bool is_cjkv) = 0;
+			};
+
 			void set_ngram_size(unsigned int ngram_size);
 
 			unsigned int get_ngram_size(void) const;
@@ -48,11 +57,17 @@ namespace Dijon
 			void tokenize(const std::string &str,
 				std::vector<std::string> &token_list);
 
+			void tokenize(const std::string &str,
+				TokensHandler &handler);
+
 			void split(const std::string &str,
 				std::vector<std::string> &token_list);
 
 			void split(const std::string &str,
 				std::vector<unicode_char_t> &token_list);
+
+			void segment(std::string str,
+				std::vector<std::string> &token_segment);
 
 			bool has_cjkv(const std::string &str);
 
