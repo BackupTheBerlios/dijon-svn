@@ -18,7 +18,7 @@
  */
 
 #include <cctype>
-#include <cassert>
+#include <cstring>
 
 #include "CJKVTokenizer.h"
 
