@@ -36,17 +36,19 @@
 #endif
 #endif
 #include <unistd.h>
+#include <sstream>
 #include <iostream>
 #include <cstring>
 #include <libxml/xmlreader.h>
 
 #include "ExternalFilter.h"
 
-using std::string;
-using std::set;
-using std::map;
 using std::cout;
 using std::endl;
+using std::string;
+using std::stringstream;
+using std::set;
+using std::map;
 
 using namespace Dijon;
 
@@ -412,13 +414,12 @@ bool ExternalFilter::run_command(const string &command)
 				ssize_t bytesRead = read(outFd, (void*)fileBuffer, outStats.st_size);
 				if (bytesRead > 0)
 				{
-					char numStr[64];
-
 					fileBuffer[bytesRead] = '\0';
 
 					m_metaData["content"] = string(fileBuffer, (unsigned int)bytesRead);
-					snprintf(numStr, 64, "%d", outStats.st_size);
-					m_metaData["size"] = numStr;
+					stringstream numStream;
+					numStream << outStats.st_size;
+					m_metaData["size"] = numStream.str();
 					gotOutput = true;
 				}
 #ifdef DEBUG
@@ -549,9 +550,9 @@ bool ExternalFilter::run_command(const string &command)
 #endif
 
 	m_metaData["content"] = fileBuffer;
-	char numStr[64];
-	snprintf(numStr, 64, "%d", totalSize);
-	m_metaData["size"] = numStr;
+	stringstream numStream;
+	numStream << totalSize;
+	m_metaData["size"] = numStream.str();
 #endif
 
 	return true;

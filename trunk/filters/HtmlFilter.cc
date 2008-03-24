@@ -525,7 +525,7 @@ static void errorHandler(void *pData, const char *pMsg, ...)
 	char pErr[1000];
 
 	va_start(args, pMsg);
-	vsnprintf(pErr, 1000, pMsg, args );
+	vsnprintf(pErr, 1000, pMsg, args);
 	va_end(args);
 
 #ifdef DEBUG
@@ -544,7 +544,7 @@ static void warningHandler(void *pData, const char *pMsg, ...)
 	char pErr[1000];
 
 	va_start(args, pMsg);
-	vsnprintf(pErr, 1000, pMsg, args );
+	vsnprintf(pErr, 1000, pMsg, args);
 	va_end(args);
 
 #ifdef DEBUG
