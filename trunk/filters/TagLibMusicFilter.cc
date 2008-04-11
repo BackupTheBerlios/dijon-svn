@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007,2008 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,9 +43,7 @@ bool check_filter_data_input(int data_input)
 {
 	Filter::DataInput input = (Filter::DataInput)data_input;
 
-	if ((input == Filter::DOCUMENT_DATA) ||
-		(input == Filter::DOCUMENT_STRING) ||
-		(input == Filter::DOCUMENT_FILE_NAME))
+	if (input == Filter::DOCUMENT_FILE_NAME)
 	{
 		return true;
 	}
@@ -72,9 +70,7 @@ TagLibMusicFilter::~TagLibMusicFilter()
 
 bool TagLibMusicFilter::is_data_input_ok(DataInput input) const
 {
-	if ((input == DOCUMENT_DATA) ||
-		(input == DOCUMENT_STRING) ||
-		(input == DOCUMENT_FILE_NAME))
+	if (input == DOCUMENT_FILE_NAME)
 	{
 		return true;
 	}

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007,2008 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,8 +16,8 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#ifndef _DIJON_TAGLIBFILTER_H
-#define _DIJON_TAGLIBFILTER_H
+#ifndef _DIJON_TAGLIBMUSICFILTER_H
+#define _DIJON_TAGLIBMUSICFILTER_H
 
 #include <string>
 
@@ -114,4 +114,4 @@ namespace Dijon
     };
 }
 
-#endif // _DIJON_TAGLIBFILTER_H
+#endif // _DIJON_TAGLIBMUSICFILTER_H
