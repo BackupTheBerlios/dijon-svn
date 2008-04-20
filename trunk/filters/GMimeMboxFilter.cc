@@ -380,6 +380,7 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 		return NULL;
 	}
 	GMimePart *mimePart = GMIME_PART(part);
+	GMimeFilter *charsetFilter = NULL;
 
 	// Check the content type
 	const GMimeContentType *mimeType = g_mime_part_get_content_type(mimePart);
@@ -398,10 +399,28 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 #ifdef DEBUG
 	cout << "GMimeMboxFilter::extractPart: encoding is " << encodingType << endl;
 #endif
-
-	// Write the part to memory
 	g_mime_part_set_encoding(mimePart, GMIME_PART_ENCODING_QUOTEDPRINTABLE);
+
+	// Create a in-memory output stream
 	GMimeStream *memStream = g_mime_stream_mem_new();
+
+	// Install a charset filter
+	const char *charset = g_mime_content_type_get_parameter(mimeType, "charset");
+	if ((charset != NULL) &&
+		(strncasecmp(charset, "UTF-8", 5) != 0))
+	{
+		charsetFilter = g_mime_filter_charset_new(charset, "UTF-8");
+		if (charsetFilter != NULL)
+		{
+#ifdef DEBUG
+			cout << "GMimeMboxFilter::extractPart: converting from charset " << charset << endl;
+#endif
+			g_mime_stream_filter_add(GMIME_STREAM_FILTER(memStream), charsetFilter);
+			g_object_unref(charsetFilter);
+		}
+	}
+
+	// Write the part to the stream
 	GMimeDataWrapper *dataWrapper = g_mime_part_get_content_object(mimePart);
 	if (dataWrapper != NULL)
 	{
