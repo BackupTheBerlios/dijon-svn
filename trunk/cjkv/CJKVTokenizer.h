@@ -58,7 +58,8 @@ namespace Dijon
 				std::vector<std::string> &token_list);
 
 			void tokenize(const std::string &str,
-				TokensHandler &handler);
+				TokensHandler &handler,
+				bool break_ascii_only_on_space = false);
 
 			void split(const std::string &str,
 				std::vector<std::string> &token_list);

@@ -208,7 +208,8 @@ void CJKVTokenizer::tokenize(const string &str, vector<string> &token_list)
 	tokenize(str, handler);
 }
 
-void CJKVTokenizer::tokenize(const string &str, TokensHandler &handler)
+void CJKVTokenizer::tokenize(const string &str, TokensHandler &handler,
+	bool break_ascii_only_on_space)
 {
 	string token_str;
 	vector<string> temp_token_list;
@@ -256,8 +257,25 @@ void CJKVTokenizer::tokenize(const string &str, TokensHandler &handler)
 			while (j < temp_token_list.size())
 			{
 				unsigned char *p = (unsigned char*) temp_token_list[j].c_str();
-				if (((isascii((int)p[0]) != 0) && (isalnum((int)p[0]) == 0))
-					|| (UTF8_IS_CJKV(temp_uchar_list[j])))
+				bool break_ascii = false;
+
+				if (isascii((int)p[0]) != 0)
+				{
+					if (break_ascii_only_on_space == true)
+					{
+						if (isspace((int)p[0]) != 0)
+						{
+							break_ascii = true;
+						}
+					}
+					else if (isalnum((int)p[0]) == 0)
+					{
+						break_ascii = true;
+					}
+				}
+
+				if ((break_ascii == true) ||
+					(UTF8_IS_CJKV(temp_uchar_list[j])))
 				{
 					j++;
 					break;
