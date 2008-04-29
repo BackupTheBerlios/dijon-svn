@@ -18,6 +18,7 @@
 
 #include <unistd.h>
 #include <stdarg.h>
+#include <time.h>
 #include <iostream>
 #include <libexif/exif-data.h>
 #include <libexif/exif-ifd.h>
@@ -25,6 +26,7 @@
 #include <libexif/exif-utils.h>
 
 #include "ExifImageFilter.h"
+#include "TimeConverter.h"
 
 using std::string;
 using std::cout;
@@ -58,6 +60,57 @@ Filter *get_filter(const std::string &mime_type)
 	return new ExifImageFilter(mime_type);
 }
 #endif
+
+struct ExifMetaData
+{
+	string m_title;
+	string m_date;
+	string m_content;
+};
+
+static void entryCallback(ExifEntry *pEntry, void *pData)
+{
+	if ((pEntry == NULL) ||
+		(pData == NULL))
+	{
+		return;
+	}
+
+	ExifMetaData *pMetaData = (ExifMetaData *)pData;
+	struct tm timeTm;
+	char value[1024];
+
+	// Initialize the structure
+	timeTm.tm_sec = timeTm.tm_min = timeTm.tm_hour = timeTm.tm_mday = 0;
+	timeTm.tm_mon = timeTm.tm_year = timeTm.tm_wday = timeTm.tm_yday = timeTm.tm_isdst = 0;
+
+	exif_entry_get_value(pEntry, value, 1024);
+	switch (pEntry->tag)
+	{
+		case EXIF_TAG_DOCUMENT_NAME:
+			pMetaData->m_title = value;
+			break;
+		case EXIF_TAG_DATE_TIME:
+			if (strptime(value, "%Y:%m:%d %H:%M:%S", &timeTm) != NULL)
+			{
+				time_t imageTime = mktime(&timeTm);
+				pMetaData->m_date = TimeConverter::toTimestamp(imageTime);
+			}
+			break;
+		default:
+			pMetaData->m_content += " ";
+			pMetaData->m_content += value;
+			break;
+	}
+#ifdef DEBUG
+	cout << "ExifImageFilter: tag " << exif_tag_get_name(pEntry->tag) << ": " << value << endl;
+#endif
+}
+
+static void contentCallback(ExifContent *pContent, void *pData)
+{
+	exif_content_foreach_entry(pContent, entryCallback, pData);
+}
 
 ExifImageFilter::ExifImageFilter(const string &mime_type) :
 	Filter(mime_type),
@@ -121,8 +174,6 @@ bool ExifImageFilter::next_document(void)
 {
 	if (m_parseDocument == true)
 	{
-		ExifData *pData = exif_data_new_from_file(m_filePath.c_str());
-
 #ifdef DEBUG
 		cout << "ExifImageFilter::next_document: " << m_filePath << endl;
 #endif
@@ -131,53 +182,27 @@ bool ExifImageFilter::next_document(void)
 		m_metaData["mimetype"] = "text/plain";
 		m_metaData["charset"] = "utf-8";
 
+		ExifData *pData = exif_data_new_from_file(m_filePath.c_str());
 		if (pData == NULL)
 		{
 			cerr << "No EXIF data in " << m_filePath.c_str() << endl;
 		}
 		else
 		{
-			ExifEntry *pEntry = NULL;
-			string pseudoContent;
-			char value[1024];
+			ExifMetaData *pMetaData = new ExifMetaData();
 
-			// Content
-			pEntry = exif_data_get_entry(pData, EXIF_TAG_USER_COMMENT);
-			if (pEntry != NULL)
-			{
-				exif_entry_get_value(pEntry, value, 1024);
-				pseudoContent += value;
-			}
-			pEntry = exif_data_get_entry(pData, EXIF_TAG_IMAGE_DESCRIPTION);
-			if (pEntry != NULL)
-			{
-				exif_entry_get_value(pEntry, value, 1024);
-				if (pseudoContent.empty() == false)
-				{
-					pseudoContent += "\n";
-				}
-				pseudoContent += value;
-			}
-			m_metaData["content"] = pseudoContent;
+			pMetaData->m_date = TimeConverter::toTimestamp(time(NULL));
 
-			// Title
-			pEntry = exif_data_get_entry(pData, EXIF_TAG_DOCUMENT_NAME);
-			if (pEntry != NULL)
-			{
-				exif_entry_get_value(pEntry, value, 1024);
-				m_metaData["title"] = value;
-			}
+			// Get it all
+			exif_data_foreach_content(pData, contentCallback, pMetaData);
 
-			// Author
-			pEntry = exif_data_get_entry(pData, EXIF_TAG_ARTIST);
-			if (pEntry != NULL)
-			{
-				exif_entry_get_value(pEntry, value, 1024);
-				m_metaData["author"] = value;
-			}
+			m_metaData["title"] = pMetaData->m_title;
+			m_metaData["date"] = pMetaData->m_date;
+			m_metaData["content"] = pMetaData->m_content;
+
+			delete pMetaData;
+			exif_data_unref(pData);
 		}
-
-		exif_data_unref(pData);
 
 		return true;
 	}
