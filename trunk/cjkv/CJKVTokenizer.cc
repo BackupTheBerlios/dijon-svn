@@ -274,10 +274,13 @@ void CJKVTokenizer::tokenize(const string &str, TokensHandler &handler,
 					}
 				}
 
-				if ((break_ascii == true) ||
-					(UTF8_IS_CJKV(temp_uchar_list[j])))
+				if (break_ascii == true)
 				{
 					j++;
+					break;
+				}
+				else if (UTF8_IS_CJKV(temp_uchar_list[j]))
+				{
 					break;
 				}
 				token_str += temp_token_list[j];
