@@ -164,7 +164,7 @@ namespace Dijon
 
 	virtual void rewind(void);
 
-	bool parse_html(const std::string &html_doc);
+	bool parse_html(const char *pData, unsigned int dataLen);
 
     private:
 	/// HtmlFilter objects cannot be copied.

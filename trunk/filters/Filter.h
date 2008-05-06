@@ -45,6 +45,10 @@ namespace Dijon
      * which MIME types.
      */
     typedef Filter *(get_filter_func)(const std::string &);
+    /** Converts text to UTF-8.
+     */
+    typedef std::string (convert_to_utf8_func)(const char *,
+        unsigned int, const std::string &);
 
     /// Filter interface.
     class Filter
@@ -81,6 +85,10 @@ namespace Dijon
 
 
 	// Initialization.
+
+	/** Sets the UTF-8 conversion funtion.
+	 */
+	bool set_utf8_converter(convert_to_utf8_func *func);
 
 	/** Sets a property, prior to calling set_document_XXX().
 	 * Returns false if the property is not supported.
@@ -160,6 +168,8 @@ namespace Dijon
     protected:
 	/// The MIME type handled by the filter.
 	std::string m_mimeType;
+	/// The UTF8 conversion function.
+	convert_to_utf8_func *m_convertToUTF8Func;
 	/// Metadata dictionary.
 	std::map<std::string, std::string> m_metaData;
 	/// The name of the input file, if any.

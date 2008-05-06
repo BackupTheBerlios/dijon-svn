@@ -34,6 +34,7 @@ using namespace Dijon;
 
 Filter::Filter(const string &mime_type) :
 	m_mimeType(mime_type),
+	m_convertToUTF8Func(NULL),
 	m_deleteInputFile(false)
 {
 }
@@ -60,6 +61,11 @@ bool Filter::set_document_file(const string &file_path, bool unlink_when_done)
 string Filter::get_mime_type(void) const
 {
 	return m_mimeType;
+}
+
+bool Filter::set_utf8_converter(convert_to_utf8_func *func)
+{
+	m_convertToUTF8Func = func;
 }
 
 const map<string, string> &Filter::get_meta_data(void) const

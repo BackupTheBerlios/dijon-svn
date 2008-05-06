@@ -16,13 +16,13 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <string.h>
 #include <libxml/xmlerror.h>
 #include <libxml/HTMLparser.h>
 #include <libxml/HTMLtree.h>
 #include <iostream>
 #include <algorithm>
 #include <utility>
-#include <cstring>
 
 #include "HtmlFilter.h"
 
@@ -130,16 +130,21 @@ static unsigned int trimSpaces(string &str)
 	return count;
 }
 
-static string findCharset(const string &text)
+static string findCharset(const char *pContent)
 {
-	// Is a charset specified ?
-	string::size_type pos = text.find("charset=");
-	if (pos != string::npos)
+	if (pContent == NULL)
 	{
-		string::size_type endPos = text.find_first_of("\t\r\n \"", pos);
-		if (endPos != string::npos)
+		return "";
+	}
+
+	// Is a charset specified ?
+	char *pCharset = strstr(pContent, "charset=");
+	if (pCharset != NULL)
+	{
+		char *pEndOfCharset = strpbrk(pCharset, "\t\r\n \"");
+		if (pEndOfCharset != NULL)
 		{
-			return text.substr(pos + 8, endPos - pos - 8);
+			return string(pCharset + 8, pEndOfCharset - pCharset - 8);
 		}
 	}
 
@@ -438,7 +443,6 @@ static void charactersHandler(void *pData, const char *pText, int textLen)
 	pState->m_lastText = text;
 
 	// Append current text
-	// FIXME: convert to UTF-8 or Latin 1 ?
 	if (pState->m_appendToTitle == true)
 	{
 		pState->m_title += text;
@@ -703,10 +707,10 @@ bool HtmlFilter::set_document_string(const string &data_str)
 #ifdef DEBUG
 		cout << "HtmlFilter::set_document_string: removed " << htmlPos << " characters" << endl;
 #endif
-		return parse_html(data_str.substr(htmlPos));
+		return parse_html(data_str.c_str() + htmlPos, (unsigned int)(data_str.length() - htmlPos));
 	}
 
-	return parse_html(data_str);
+	return parse_html(data_str.c_str(), (unsigned int)data_str.length());
 }
 
 bool HtmlFilter::set_document_file(const string &file_path, bool unlink_when_done)
@@ -733,8 +737,6 @@ bool HtmlFilter::next_document(void)
 {
 	if (m_pState != NULL)
 	{
-		bool foundCharset = false;
-
 		m_metaData["charset"] = m_pState->m_charset;
 		m_metaData["title"] = m_pState->m_title;
 		m_metaData["content"] = m_pState->m_text;
@@ -746,13 +748,9 @@ bool HtmlFilter::next_document(void)
 		{
 			if (iter->first == "charset")
 			{
-				foundCharset = true;
+				continue;
 			}
 			m_metaData[iter->first] = iter->second;
-		}
-		if (foundCharset == false)
-		{
-			m_metaData["charset"] = "utf-8";
 		}
 		// FIXME: shove the links in there somehow !
 
@@ -791,10 +789,18 @@ void HtmlFilter::rewind(void)
 	}
 }
 
-bool HtmlFilter::parse_html(const string &html_doc)
+bool HtmlFilter::parse_html(const char *pData, unsigned int dataLen)
 {
 	htmlSAXHandler saxHandler;
 	xmlCharEncoding encoding = XML_CHAR_ENCODING_NONE;
+	string utf8Content;
+	const char *pContent = pData;
+
+	if ((pData == NULL) ||
+		(dataLen == 0))
+	{
+		return false;
+	}
 
 	// Setup the SAX handler
 	memset((void*)&saxHandler, 0, sizeof(htmlSAXHandler));
@@ -815,13 +821,8 @@ bool HtmlFilter::parse_html(const string &html_doc)
 	}
 
 	// Is a charset specified ?
-	m_pState->m_charset = findCharset(html_doc);
-	if (m_pState->m_charset.empty() == true)
-	{
-		// Assume UTF-8
-		m_pState->m_charset = "utf-8";
-	}
-	else
+	m_pState->m_charset = findCharset(pContent);
+	if (m_pState->m_charset.empty() == false)
 	{
 #ifdef DEBUG
 		cout << "HtmlFilter::parse_html: found charset " << m_pState->m_charset << endl;
@@ -836,26 +837,53 @@ bool HtmlFilter::parse_html(const string &html_doc)
 			encoding = xmlParseCharEncoding(m_pState->m_charset.c_str());
 			if (encoding == XML_CHAR_ENCODING_ERROR)
 			{
-				// FIXME: provie a xmlCharEncodingHandler for this charset
 				encoding = XML_CHAR_ENCODING_NONE;
-				cerr << "HtmlFilter::parse_html: charset " << m_pState->m_charset
-					<< " is not supported" << endl;
+				cerr << "HTML parser doesn't support charset " << m_pState->m_charset << endl;
+
+				if (m_convertToUTF8Func != NULL)
+				{
+					// FIXME: provide a xmlCharEncodingHandler for this charset
+					utf8Content = (*m_convertToUTF8Func)(pContent, dataLen, m_pState->m_charset);
+					if (utf8Content.empty() == false)
+					{
+						string charsetStr("charset=");
+
+						encoding = XML_CHAR_ENCODING_UTF8;
+
+						// Look for and modify the charset specified in the document or
+						// the parser might get very confused
+						charsetStr += m_pState->m_charset;
+						string::size_type charsetPos = utf8Content.find(charsetStr);
+						if (charsetPos != string::npos)
+						{
+							utf8Content.replace(charsetPos, charsetStr.length(), "charset=utf-8");
+						}
+
+						pContent = utf8Content.c_str();
+						dataLen = (unsigned int)utf8Content.length();
+					}
+				}
 			}
 		}
 	}
+	// Output will be in UTF-8
+	m_pState->m_charset = "utf-8";
 
+#ifdef DEBUG
+	cout << "HtmlFilter::parse_html: input encoding is " << encoding << endl;
+#endif
 	htmlParserCtxtPtr pContext = htmlCreatePushParserCtxt(&saxHandler, (void*)m_pState,
-		html_doc.c_str(), (int)html_doc.length(), "", encoding);
+		pContent, (int)dataLen, "", encoding);
 	if (pContext != NULL)
 	{
 		xmlSubstituteEntitiesDefault(1);
 		xmlCtxtUseOptions(pContext, 0);
 
 		// Parse
-		htmlParseChunk(pContext, html_doc.c_str(), (int)html_doc.length(), 0);
+		htmlParseChunk(pContext, pContent, (int)dataLen, 0);
 
 		// Free
-		htmlParseChunk(pContext, html_doc.c_str(), 0, 1);
+		htmlParseChunk(pContext, pContent, 0, 1);
 		int ret = pContext->wellFormed;
 		xmlDocPtr pDoc = pContext->myDoc;
 		xmlFreeParserCtxt(pContext);
@@ -869,7 +897,7 @@ bool HtmlFilter::parse_html(const string &html_doc)
 	}
 	else
 	{
-		cerr << "HtmlFilter::parse_html: couldn't create parser context" << endl;
+		cerr << "Couldn't create HTML parser context" << endl;
 	}
 
 	// The text after the last link might make a good abstract
