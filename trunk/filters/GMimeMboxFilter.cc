@@ -144,6 +144,7 @@ bool GMimeMboxFilter::set_document_file(const string &file_path, bool unlink_whe
 	m_partsCount = m_partNum = -1;
 	m_messageStart = 0;
 	m_messageDate.clear();
+	m_partCharset.clear();
 	m_foundDocument = false;
 
 	Filter::set_document_file(file_path, unlink_when_done);
@@ -201,6 +202,7 @@ bool GMimeMboxFilter::skip_to_document(const string &ipath)
 	finalize(false);
 	m_partsCount = -1;
 	m_messageDate.clear();
+	m_partCharset.clear();
 	m_foundDocument = false;
 
 	if (initialize() == true)
@@ -404,20 +406,25 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 	// Create a in-memory output stream
 	GMimeStream *memStream = g_mime_stream_mem_new();
 
-	// Install a charset filter
 	const char *charset = g_mime_content_type_get_parameter(mimeType, "charset");
-	if ((charset != NULL) &&
-		(strncasecmp(charset, "UTF-8", 5) != 0))
+	if (charset != NULL)
 	{
-		charsetFilter = g_mime_filter_charset_new(charset, "UTF-8");
-		if (charsetFilter != NULL)
+		m_partCharset = charset;
+#if 0
+		// Install a charset filter
+		if (strncasecmp(charset, "UTF-8", 5) != 0)
 		{
+			charsetFilter = g_mime_filter_charset_new(charset, "UTF-8");
+			if (charsetFilter != NULL)
+			{
 #ifdef DEBUG
-			cout << "GMimeMboxFilter::extractPart: converting from charset " << charset << endl;
+				cout << "GMimeMboxFilter::extractPart: converting from charset " << charset << endl;
 #endif
-			g_mime_stream_filter_add(GMIME_STREAM_FILTER(memStream), charsetFilter);
-			g_object_unref(charsetFilter);
+				g_mime_stream_filter_add(GMIME_STREAM_FILTER(memStream), charsetFilter);
+				g_object_unref(charsetFilter);
+			}
 		}
+#endif
 	}
 
 	// Write the part to the stream
@@ -571,6 +578,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 					m_metaData["mimetype"] = contentType;
 					m_metaData["content"] = content;
 					m_metaData["date"] = m_messageDate;
+					m_metaData["charset"] = m_partCharset;
 					snprintf(posStr, 128, "%u", partLength);
 					m_metaData["size"] = posStr;
 					snprintf(posStr, 128, "o=%u&p=%d", m_messageStart, max(m_partNum - 1, 0));

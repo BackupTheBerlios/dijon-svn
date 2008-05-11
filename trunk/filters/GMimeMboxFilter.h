@@ -116,6 +116,7 @@ namespace Dijon
 	int m_partNum;
 	off_t m_messageStart;
 	std::string m_messageDate;
+	std::string m_partCharset;
 	bool m_foundDocument;
 
 	bool initialize(void);
