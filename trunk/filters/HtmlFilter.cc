@@ -509,7 +509,32 @@ static void whitespaceHandler(void *pData, const xmlChar *pText, int txtLen)
 
 static void commentHandler(void *pData, const char *pText)
 {
-	// FIXME: take comments into account, eg on terms position ?
+	if (pData == NULL)
+	{
+		return;
+	}
+
+	HtmlFilter::ParserState *pState = (HtmlFilter::ParserState *)pData;
+	if (pState == NULL)
+	{
+		return;
+	}
+
+	if (pText != NULL)
+	{
+		// Obey htdig noindex
+		if (strncasecmp(pText, "htdig_noindex", 13) == 0)
+		{
+			++pState->m_skip;
+		}
+		else if (strncasecmp(pText, "/htdig_noindex", 14) == 0)
+		{
+			--pState->m_skip;
+		}
+#ifdef DEBUG
+		cout << "HtmlFilter::commentHandler: " << pText << " " << pState->m_skip << endl;
+#endif
+	}
 }
 
 static void errorHandler(void *pData, const char *pMsg, ...)
