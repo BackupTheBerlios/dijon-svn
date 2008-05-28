@@ -531,9 +531,6 @@ static void commentHandler(void *pData, const char *pText)
 		{
 			--pState->m_skip;
 		}
-#ifdef DEBUG
-		cout << "HtmlFilter::commentHandler: " << pText << " " << pState->m_skip << endl;
-#endif
 	}
 }
 

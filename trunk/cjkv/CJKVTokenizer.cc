@@ -339,19 +339,20 @@ void CJKVTokenizer::split(const string &str, vector<unicode_char_t> &token_list)
 	}
 }
 
-void CJKVTokenizer::segment(string str, vector<string> &token_segment)
+void CJKVTokenizer::segment(const string &str, vector<string> &token_segment)
 {
 	vector<string> token_list;
+	string onlySpacesStr(str);
 
-	for (string::iterator it = str.begin(); it != str.end(); ++it)
+	for (string::iterator it = onlySpacesStr.begin(); it != onlySpacesStr.end(); ++it)
 	{
-		if ((*it == '\n') || (*it == '\r') || (*it == '\t'))
+		if (isspace((int)*it) != 0)
 		{
 			*it = ' ';
 		}
 	}
 
-	_split_string(str, " ", token_segment);
+	_split_string(onlySpacesStr, " ", token_segment);
 }
 
 bool CJKVTokenizer::has_cjkv(const string &str)

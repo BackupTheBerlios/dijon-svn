@@ -67,7 +67,7 @@ namespace Dijon
 			void split(const std::string &str,
 				std::vector<unicode_char_t> &token_list);
 
-			void segment(std::string str,
+			void segment(const std::string &str,
 				std::vector<std::string> &token_segment);
 
 			bool has_cjkv(const std::string &str);
