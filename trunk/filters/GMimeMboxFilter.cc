@@ -68,60 +68,6 @@ Filter *get_filter(const std::string &mime_type)
 }
 #endif
 
-static string decodeISO2022JPSubject(const string &msgSubject)
-{
-	string iso2022Subject;
-	string::size_type startPos = msgSubject.find("=?");
-	string::size_type endPos = 0;
-
-	// Special considerations apply if =?iso-2022-jp?B? or such appears in the subject line
-	while (startPos != string::npos)
-	{
-		if (strncasecmp(msgSubject.substr(startPos).c_str(), "=?iso-2022-jp?B?", 16) == 0)
-		{
-			// There may be ASCII text in-between
-			iso2022Subject += msgSubject.substr(endPos, startPos - endPos);
-			startPos += 16;
-
-			endPos = msgSubject.find("?=", startPos);
-			if (endPos == string::npos)
-			{
-				break;
-			}
-
-			string base64String(msgSubject.substr(startPos, endPos - startPos));
-			char *pDecoded = new char[base64String.length()];
-			int state = 0;
-			guint32 save = 0;
-
-			size_t decodedLength = g_mime_utils_base64_decode_step((const unsigned char*)base64String.c_str(),
-				(size_t)base64String.length(), (unsigned char*)pDecoded, &state, &save);
-			if (decodedLength > 0)
-			{
-				iso2022Subject += string(pDecoded, decodedLength);
-			}
-
-			delete[] pDecoded;
-		}
-
-		// Next
-		endPos += 2;
-		startPos = msgSubject.find("=?", endPos);
-	}
-
-	if ((endPos != string::npos) &&
-		(endPos + 2 < msgSubject.length()))
-	{
-		// ASCII text may follow
-		iso2022Subject += msgSubject.substr(endPos + 2);
-	}
-#ifdef DEBUG
-	cout << "GMimeMboxFilter::extractMessage: decoded subject to " << iso2022Subject << endl;
-#endif
-
-	return iso2022Subject;
-}
-
 GMimeMboxFilter::GMimeMboxFilter(const string &mime_type) :
 	Filter(mime_type),
 	m_returnHeaders(false),
@@ -582,7 +528,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 #endif
 
 				// Extract the subject
-				const char *pSubject = g_mime_message_get_header(m_pMimeMessage, "Subject");
+				const char *pSubject = g_mime_message_get_subject(m_pMimeMessage);
 				if (pSubject != NULL)
 				{
 					msgSubject = pSubject;
@@ -627,15 +573,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 
 					// New document
 					m_metaData.clear();
-					// Is this Japanese mail ? See http://tlug.linux.or.jp/craigoda/writings/linux-nihongo/node35.html
-					if (strncasecmp(m_partCharset.c_str(), "ISO-2022-JP", 11) == 0)
-					{
-						m_metaData["title"] = decodeISO2022JPSubject(msgSubject);
-					}
-					else
-					{
-						m_metaData["title"] = msgSubject;
-					}
+					m_metaData["title"] = msgSubject;
 					m_metaData["uri"] = location;
 					m_metaData["mimetype"] = contentType;
 					m_metaData["content"] = content;
