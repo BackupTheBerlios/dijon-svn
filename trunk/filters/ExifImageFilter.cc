@@ -26,7 +26,6 @@
 #include <libexif/exif-utils.h>
 
 #include "ExifImageFilter.h"
-#include "TimeConverter.h"
 
 using std::string;
 using std::cout;
@@ -93,8 +92,12 @@ static void entryCallback(ExifEntry *pEntry, void *pData)
 		case EXIF_TAG_DATE_TIME:
 			if (strptime(value, "%Y:%m:%d %H:%M:%S", &timeTm) != NULL)
 			{
-				time_t imageTime = mktime(&timeTm);
-				pMetaData->m_date = TimeConverter::toTimestamp(imageTime);
+				char timeStr[64];
+
+				if (strftime(timeStr, 64, "%a, %d %b %Y %H:%M:%S %z", &timeTm) > 0)
+				{
+					pMetaData->m_date = timeStr;
+				}
 			}
 			break;
 		default:
@@ -191,13 +194,14 @@ bool ExifImageFilter::next_document(void)
 		{
 			ExifMetaData *pMetaData = new ExifMetaData();
 
-			pMetaData->m_date = TimeConverter::toTimestamp(time(NULL));
-
 			// Get it all
 			exif_data_foreach_content(pData, contentCallback, pMetaData);
 
 			m_metaData["title"] = pMetaData->m_title;
-			m_metaData["date"] = pMetaData->m_date;
+			if (pMetaData->m_date.empty() == false)
+			{
+				m_metaData["date"] = pMetaData->m_date;
+			}
 			m_metaData["content"] = pMetaData->m_content;
 
 			delete pMetaData;
