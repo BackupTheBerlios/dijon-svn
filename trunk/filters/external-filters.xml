@@ -183,7 +183,7 @@ is optional, and defaults to text/plain.
 <filter>
   <mimetype>application/pdf</mimetype>
   <command>pdftotext</command>
-  <arguments>-htmlmeta %s -</arguments>
+  <arguments>-raw -htmlmeta %s -</arguments>
   <output>text/html</output>
 </filter>
 <filter>
