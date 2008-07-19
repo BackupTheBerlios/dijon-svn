@@ -929,7 +929,11 @@ bool HtmlFilter::parse_html(const char *pData, unsigned int dataLen)
 	}
 
 	// Append META keywords, if any were found
-	m_pState->m_text += m_pState->m_metaTags["keywords"];
+	map<string, string>::iterator keywordsIter = m_pState->m_metaTags.find("keywords");
+	if (keywordsIter != m_pState->m_metaTags.end())
+	{
+		m_pState->m_text += keywordsIter->second;
+	}
 
 	return true;
 }
