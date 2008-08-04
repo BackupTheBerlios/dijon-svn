@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007-2008 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@
 namespace Dijon
 {
     /// A link in an HTML page.
-    class Link
+    class DIJON_FILTER_EXPORT Link
     {
     public:
 		Link();
@@ -46,7 +46,7 @@ namespace Dijon
 		unsigned int m_endPos;
     };
 
-    class HtmlFilter : public Filter
+    class DIJON_FILTER_EXPORT HtmlFilter : public Filter
     {
     public:
 	/// Builds an empty filter.

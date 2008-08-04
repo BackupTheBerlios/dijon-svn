@@ -29,9 +29,17 @@
 #define unicode_char_t gunichar
 #endif
 
+#ifndef DIJON_CJKV_EXPORT
+#if defined __GNUC__ && (__GNUC__ >= 4)
+  #define DIJON_CJKV_EXPORT __attribute__ ((visibility("default")))
+#else
+  #define DIJON_CJKV_EXPORT
+#endif
+#endif
+
 namespace Dijon
 {
-	class CJKVTokenizer
+	class DIJON_CJKV_EXPORT CJKVTokenizer
 	{
 		public:
 			CJKVTokenizer();

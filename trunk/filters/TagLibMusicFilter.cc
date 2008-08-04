@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007,2008 Fabrice Colin
+ *  Copyright 2007-2008 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ using std::string;
 using namespace Dijon;
 
 #ifdef _DYNAMIC_DIJON_FILTERS
-bool get_filter_types(std::set<std::string> &mime_types)
+DIJON_FILTER_EXPORT bool get_filter_types(std::set<std::string> &mime_types)
 {
 	mime_types.clear();
 	mime_types.insert("audio/mpeg");
@@ -39,7 +39,7 @@ bool get_filter_types(std::set<std::string> &mime_types)
 	return true;
 }
 
-bool check_filter_data_input(int data_input)
+DIJON_FILTER_EXPORT bool check_filter_data_input(int data_input)
 {
 	Filter::DataInput input = (Filter::DataInput)data_input;
 
@@ -51,7 +51,7 @@ bool check_filter_data_input(int data_input)
 	return false;
 }
 
-Filter *get_filter(const std::string &mime_type)
+DIJON_FILTER_EXPORT Filter *get_filter(const std::string &mime_type)
 {
 	return new TagLibMusicFilter(mime_type);
 }

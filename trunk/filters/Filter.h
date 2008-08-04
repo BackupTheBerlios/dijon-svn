@@ -23,6 +23,14 @@
 #include <set>
 #include <map>
 
+#ifndef DIJON_FILTER_EXPORT
+#if defined __GNUC__ && (__GNUC__ >= 4)
+  #define DIJON_FILTER_EXPORT __attribute__ ((visibility("default")))
+#else
+  #define DIJON_FILTER_EXPORT
+#endif
+#endif
+
 namespace Dijon
 {
     class Filter;
@@ -53,7 +61,7 @@ namespace Dijon
         unsigned int, const std::string &);
 
     /// Filter interface.
-    class Filter
+    class DIJON_FILTER_EXPORT Filter
     {
     public:
 	/// Builds an empty filter.
