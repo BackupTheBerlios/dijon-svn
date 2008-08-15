@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007-2008 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -233,17 +233,7 @@ Filter *FilterFactory::getFilter(const string &mime_type)
 	}
 #endif
 
-	Filter *pFilter = getLibraryFilter(typeOnly);
-	if (pFilter == NULL)
-	{
-		if (strncasecmp(typeOnly.c_str(), "text", 4) == 0)
-		{
-			// Use this by default for text documents
-			return new TextFilter(typeOnly);
-		}
-	}
-
-	return pFilter;
+	return getLibraryFilter(typeOnly);
 }
 
 void FilterFactory::getSupportedTypes(set<string> &mime_types)
@@ -280,8 +270,7 @@ bool FilterFactory::isSupportedType(const string &mime_type)
 
 	// Is it a built-in type ?
 	if ((typeOnly == "text/html") ||
-		(m_types.find(typeOnly) != m_types.end()) ||
-		(strncasecmp(typeOnly.c_str(), "text", 4) == 0))
+		(m_types.find(typeOnly) != m_types.end()))
 	{
 		return true;
 	}
