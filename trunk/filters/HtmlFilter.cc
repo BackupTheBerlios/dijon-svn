@@ -16,6 +16,10 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#ifdef HAVE_VSNPRINTF
+#include <stdio.h>
+#include <stdarg.h>
+#endif
 #include <string.h>
 #include <libxml/xmlerror.h>
 #include <libxml/HTMLparser.h>
@@ -547,6 +551,7 @@ static void errorHandler(void *pData, const char *pMsg, ...)
 		return;
 	}
 
+#ifdef HAVE_VSNPRINTF
 	va_list args;
 	char pErr[1000];
 
@@ -557,6 +562,7 @@ static void errorHandler(void *pData, const char *pMsg, ...)
 #ifdef DEBUG
 	cout << "HtmlFilter::errorHandler: after " << pState->m_textPos << ": " << pErr << endl;
 #endif
+#endif
 
 	// Be lenient as much as possible
 	xmlResetLastError();
@@ -566,6 +572,7 @@ static void errorHandler(void *pData, const char *pMsg, ...)
 
 static void warningHandler(void *pData, const char *pMsg, ...)
 {
+#ifdef HAVE_VSNPRINTF
 	va_list args;
 	char pErr[1000];
 
@@ -575,6 +582,7 @@ static void warningHandler(void *pData, const char *pMsg, ...)
 
 #ifdef DEBUG
 	cout << "HtmlFilter::warningHandler: " << pErr << endl;
+#endif
 #endif
 }
 
