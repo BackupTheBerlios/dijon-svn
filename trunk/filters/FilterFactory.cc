@@ -269,7 +269,14 @@ bool FilterFactory::isSupportedType(const string &mime_type)
 	}
 
 	// Is it a built-in type ?
-	if ((typeOnly == "text/html") ||
+	if ((typeOnly == "text/plain") ||
+#ifndef _DYNAMIC_DIJON_HTMLFILTER
+		(typeOnly == "text/html") ||
+#endif
+#ifndef _DYNAMIC_DIJON_XMLFILTER
+		(typeOnly == "text/xml") ||
+		(typeOnly == "application/xml") ||
+#endif
 		(m_types.find(typeOnly) != m_types.end()))
 	{
 		return true;
@@ -293,3 +300,4 @@ void FilterFactory::unloadFilters(void)
 	m_types.clear();
 	m_handles.clear();
 }
+
