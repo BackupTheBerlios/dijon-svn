@@ -94,7 +94,12 @@ static void entryCallback(ExifEntry *pEntry, void *pData)
 			{
 				char timeStr[64];
 
+#if defined(__GNU_LIBRARY__)
+				// %z is a GNU extension
 				if (strftime(timeStr, 64, "%a, %d %b %Y %H:%M:%S %z", &timeTm) > 0)
+#else
+				if (strftime(timeStr, 64, "%a, %d %b %Y %H:%M:%S %Z", &timeTm) > 0)
+#endif
 				{
 					pMetaData->m_date = timeStr;
 				}
