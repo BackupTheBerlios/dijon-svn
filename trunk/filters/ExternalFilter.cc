@@ -249,7 +249,7 @@ void ExternalFilter::initialize(const std::string &config_file, set<std::string>
 #if LIBXML_VERSION < 20600
 	pDoc = xmlParseFile(config_file.c_str());
 #else
-	pDoc = xmlReadFile(config_file.c_str(), NULL, 0);
+	pDoc = xmlReadFile(config_file.c_str(), NULL, XML_PARSE_NOCDATA);
 #endif
 	if (pDoc == NULL)
 	{
@@ -355,20 +355,26 @@ void ExternalFilter::rewind(void)
 // This function is heavily inspired by Xapian Omega's stdout_to_string()
 bool ExternalFilter::run_command(const string &command)
 {
-	bool gotOutput = false;
 	string commandLine(command);
-	string::size_type argPos = commandLine.find("%s");
+	bool replacedParam = false, gotOutput = false;
 
-	if (argPos == string::npos)
-	{
-		commandLine += " ";
-		commandLine += shell_protect(m_filePath);
-	}
-	else
+	string::size_type argPos = commandLine.find("%s");
+	while (argPos != string::npos)
 	{
 		string quotedFilePath(shell_protect(m_filePath));
 
 		commandLine.replace(argPos, 2, quotedFilePath);
+		replacedParam = true;
+
+		// Next
+		argPos = commandLine.find("%s", argPos + 1);
+	}
+
+	if (replacedParam == false)
+	{
+		// Append
+		commandLine += " ";
+		commandLine += shell_protect(m_filePath);
 	}
 
 #ifndef LIMIT_EXTERNAL_PROGRAMS
