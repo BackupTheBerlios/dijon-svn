@@ -17,6 +17,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/types.h>
@@ -484,21 +485,45 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 #endif
 			if (messageEnd > m_messageStart)
 			{
-				// FIXME: this only applies to Mozilla
+				// This only applies to Mozilla
 				const char *pMozStatus = g_mime_message_get_header(m_pMimeMessage, "X-Mozilla-Status");
 				if (pMozStatus != NULL)
 				{
-					long int mozStatus = strtol(pMozStatus, NULL, 16);
+					long int mozFlags = strtol(pMozStatus, NULL, 16);
+
 					// Watch out for Mozilla specific flags :
 					// MSG_FLAG_EXPUNGED, MSG_FLAG_EXPIRED
 					// They are defined in mailnews/MailNewsTypes.h and msgbase/nsMsgMessageFlags.h
-					if ((mozStatus & 0x0008) ||
-						(mozStatus & 0x0040))
+					if ((mozFlags & 0x0008) ||
+						(mozFlags & 0x0040))
 					{
 #ifdef DEBUG
 						cout << "GMimeMboxFilter::extractMessage: flagged by Mozilla" << endl;
 #endif
 						continue;
+					}
+				}
+				// This only applies to Evolution
+				const char *pEvoStatus = g_mime_message_get_header(m_pMimeMessage, "X-Evolution");
+				if (pEvoStatus != NULL)
+				{
+					string evoStatus(pEvoStatus);
+					string::size_type flagsPos = evoStatus.find('-');
+
+					if (flagsPos != string::npos)
+					{
+						long int evoFlags = strtol(evoStatus.substr(flagsPos + 1).c_str(), NULL, 16);
+
+						// Watch out for Evolution specific flags :
+						// CAMEL_MESSAGE_DELETED
+						// It's defined in camel/camel-folder-summary.h
+						if (evoFlags & 0x0002)
+						{
+#ifdef DEBUG
+							cout << "GMimeMboxFilter::extractMessage: flagged by Evolution" << endl;
+#endif
+							continue;
+						}
 					}
 				}
 
