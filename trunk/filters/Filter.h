@@ -75,14 +75,14 @@ namespace Dijon
 	/** What data a filter supports as input.
 	 * It can be either the whole document data, its file name, or its URI.
 	 */
-	typedef enum { DOCUMENT_DATA=0, DOCUMENT_STRING, DOCUMENT_FILE_NAME, DOCUMENT_URI } DataInput;
+	typedef enum { DOCUMENT_DATA = 0, DOCUMENT_STRING, DOCUMENT_FILE_NAME, DOCUMENT_URI } DataInput;
 
 	/** Input properties supported by the filter.
-	 * - DEFAULT_CHARSET is the charset preferred by the client application.
+	 * - PREFERRED_CHARSET is the charset preferred by the client application.
 	 * The filter will convert document's content to this charset if possible.
 	 * - OPERATING_MODE can be set to either view or index.
 	 */
-	typedef enum { DEFAULT_CHARSET=0, OPERATING_MODE } Properties;
+	typedef enum { PREFERRED_CHARSET = 0, OPERATING_MODE } Properties;
 
 
 	// Information.

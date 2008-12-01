@@ -23,7 +23,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <strings.h>
+#ifdef HAVE_DLFCN_H
 #include <dlfcn.h>
+#endif
 #include <algorithm>
 #include <iostream>
 
@@ -31,10 +33,12 @@
 #include "TextFilter.h"
 #include "FilterFactory.h"
 
+#ifdef HAVE_DLFCN_H
 #ifdef __CYGWIN__
 #define DLOPEN_FLAGS RTLD_LAZY
 #else
 #define DLOPEN_FLAGS (RTLD_LAZY|RTLD_LOCAL)
+#endif
 #endif
 
 #define GETFILTERTYPESFUNC	"_Z16get_filter_typesRSt3setISsSt4lessISsESaISsEE"
@@ -62,8 +66,9 @@ FilterFactory::~FilterFactory()
 
 unsigned int FilterFactory::loadFilters(const string &dir_name)
 {
-	struct stat fileStat;
 	unsigned int count = 0;
+#ifdef HAVE_DLFCN_H
+	struct stat fileStat;
 
 	if (dir_name.empty() == true)
 	{
@@ -153,6 +158,7 @@ unsigned int FilterFactory::loadFilters(const string &dir_name)
 		pDirEntry = readdir(pDir);
 	}
 	closedir(pDir);
+#endif
 
 	return count;
 }
@@ -187,6 +193,7 @@ Filter *FilterFactory::getLibraryFilter(const string &mime_type)
 		return NULL;
 	}
 
+#ifdef HAVE_DLFCN_H
 	// Get a filter object then
 	get_filter_func *pFunc = (get_filter_func *)dlsym(pHandle,
 		GETFILTERFUNC);
@@ -196,6 +203,7 @@ Filter *FilterFactory::getLibraryFilter(const string &mime_type)
 	}
 #ifdef DEBUG
 	cout << "FilterFactory::getLibraryFilter: couldn't find export getFilter" << endl;
+#endif
 #endif
 
 	return NULL;
@@ -287,6 +295,7 @@ bool FilterFactory::isSupportedType(const string &mime_type)
 
 void FilterFactory::unloadFilters(void)
 {
+#ifdef HAVE_DLFCN_H
 	for (map<string, void*>::iterator iter = m_handles.begin(); iter != m_handles.end(); ++iter)
 	{
 		if (dlclose(iter->second) != 0)
@@ -296,6 +305,7 @@ void FilterFactory::unloadFilters(void)
 #endif
 		}
 	}
+#endif
 
 	m_types.clear();
 	m_handles.clear();

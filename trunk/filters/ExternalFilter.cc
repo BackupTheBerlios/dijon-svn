@@ -22,6 +22,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
 #ifdef HAVE_SOCKETPAIR
 #ifdef HAVE_FORK
 #ifdef HAVE_SETRLIMIT
@@ -380,7 +381,16 @@ bool ExternalFilter::run_command(const string &command)
 #ifndef LIMIT_EXTERNAL_PROGRAMS
 	// Create a temporary file for the program's output
 	char outTemplate[18] = "/tmp/filterXXXXXX";
+#ifdef HAVE_MKSTEMP
 	int outFd = mkstemp(outTemplate);
+#else
+	int outFd = -1;
+	char *pOutFile = mktemp(outTemplate);
+	if (pOutFile != NULL)
+	{
+		outFd = open(pOutFile, O_WRONLY|O_TRUNC);
+	}
+#endif
 	if (outFd == -1)
 	{
 		return false;

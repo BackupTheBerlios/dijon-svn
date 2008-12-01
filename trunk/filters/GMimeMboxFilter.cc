@@ -31,6 +31,7 @@
 
 #include <gmime/gmime.h>
 
+#include "config.h"
 #include "GMimeMboxFilter.h"
 
 using std::cout;
@@ -105,7 +106,7 @@ bool GMimeMboxFilter::is_data_input_ok(DataInput input) const
 
 bool GMimeMboxFilter::set_property(Properties prop_name, const string &prop_value)
 {
-	if (prop_name == DEFAULT_CHARSET)
+	if (prop_name == PREFERRED_CHARSET)
 	{
 		m_defaultCharset = prop_value;
 
@@ -195,7 +196,7 @@ bool GMimeMboxFilter::skip_to_document(const string &ipath)
 	}
 
 	// ipath's format is "o=offset&p=part_number"
-	if (sscanf(ipath.c_str(), "o=%u&p=%d", &m_messageStart, &m_partNum) != 2)
+	if (sscanf(ipath.c_str(), "o=%u&p=%d", (unsigned int*)&m_messageStart, &m_partNum) != 2)
 	{
 		return false;
 	}
@@ -383,7 +384,6 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 		return NULL;
 	}
 	GMimePart *mimePart = GMIME_PART(part);
-	GMimeFilter *charsetFilter = NULL;
 
 	// Check the content type
 	const GMimeContentType *mimeType = g_mime_part_get_content_type(mimePart);
@@ -415,7 +415,7 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 		// Install a charset filter
 		if (strncasecmp(charset, "UTF-8", 5) != 0)
 		{
-			charsetFilter = g_mime_filter_charset_new(charset, "UTF-8");
+			GMimeFilter *charsetFilter = g_mime_filter_charset_new(charset, "UTF-8");
 			if (charsetFilter != NULL)
 			{
 #ifdef DEBUG
@@ -536,17 +536,24 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 				else
 				{
 					time_t timeNow = time(NULL);
-					struct tm timeTm;
+					struct tm *pTimeTm = new struct tm;
 
-					if (localtime_r(&timeNow, &timeTm) != NULL)
+#ifdef HAVE_LOCALTIME_R
+					if (localtime_r(&timeNow, pTimeTm) != NULL)
+#else
+					pTimeTm = localtime(&timeNow);
+					if (pTimeTm != NULL)
+#endif
 					{
 						char timeStr[64];
 
-						if (strftime(timeStr, 64, "%a, %d %b %Y %H:%M:%S %Z", &timeTm) > 0)
+						if (strftime(timeStr, 64, "%a, %d %b %Y %H:%M:%S %Z", pTimeTm) > 0)
 						{
 							m_messageDate = timeStr;
 						}
 					}
+
+					delete pTimeTm;
 				}
 #ifdef DEBUG
 				cout << "GMimeMboxFilter::extractMessage: message date is " << m_messageDate << endl;
