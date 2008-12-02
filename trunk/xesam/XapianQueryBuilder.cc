@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007,2008 Fabrice Colin
+ *  Copyright 2007-2008 Fabrice Colin
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -97,6 +97,7 @@ static time_t mktime_from_utc (struct tm *t)
 #include <sstream>
 #include <algorithm>
 
+#include "config.h"
 #include "XesamLog.h"
 #ifdef HAVE_BOOST_SPIRIT
 #include "XesamULParser.h"
@@ -186,6 +187,7 @@ static string sizeToSizeRange(const string &size, SelectionType selection,
 	return sizeRange;
 }
 
+#ifdef HAVE_STRPTIME
 // Converts from a ISO 8601 date/time
 // Of the formats defined at http://www.w3.org/TR/NOTE-datetime, we only support
 // the formats YYYY-MM-DD, YYY-MM-DDThh:mm:ss, and YYY-MM-DDThh:mm:ssTZD
@@ -244,6 +246,7 @@ static string dateToDateAndTimeRanges(const string &timestamp, SelectionType sel
 
 	return ranges;
 }
+#endif
 
 static void extractClasses(const string &category, set<string> &xesamClasses)
 {
@@ -519,6 +522,7 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 						"0", "1000000000000", "b");
 				}
 			}
+#ifdef HAVE_STRPTIME
 			else if (fieldName.find("date") != string::npos)
 			{
 				if (field_type == Date)
@@ -526,6 +530,7 @@ void XapianQueryBuilder::on_selection(SelectionType selection,
 					pseudoQueryString = dateToDateAndTimeRanges(*valueIter, selection);
 				}
 			}
+#endif
 			else
 			{
 				map<string, string>::const_iterator mapIter = m_fieldMapping.find(fieldName);
