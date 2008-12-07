@@ -16,6 +16,7 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "config.h"
 #ifdef HAVE_TIMEGM
 #ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE
@@ -97,7 +98,6 @@ static time_t mktime_from_utc (struct tm *t)
 #include <sstream>
 #include <algorithm>
 
-#include "config.h"
 #include "XesamLog.h"
 #ifdef HAVE_BOOST_SPIRIT
 #include "XesamULParser.h"
