@@ -105,9 +105,7 @@ static void entryCallback(ExifEntry *pEntry, void *pData)
 				timeTm.tm_min = atoi(valueStr.substr(14, 2).c_str());
 				timeTm.tm_sec = atoi(valueStr.substr(17, 2).c_str());
 			}
-			if ((timeTm.tm_year > 0) &&
-				(timeTm.tm_mon > 0) &&
-				(timeTm.tm_mday > 0))
+			if (timeTm.tm_mday > 0)
 #endif
 			{
 				char timeStr[64];
