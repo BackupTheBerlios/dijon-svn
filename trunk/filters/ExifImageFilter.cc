@@ -18,6 +18,7 @@
 
 #include <unistd.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <time.h>
 #include <iostream>
 #include <libexif/exif-data.h>
@@ -25,6 +26,7 @@
 #include <libexif/exif-loader.h>
 #include <libexif/exif-utils.h>
 
+#include "config.h"
 #include "ExifImageFilter.h"
 
 using std::string;
@@ -90,7 +92,23 @@ static void entryCallback(ExifEntry *pEntry, void *pData)
 			pMetaData->m_title = value;
 			break;
 		case EXIF_TAG_DATE_TIME:
+#ifdef HAVE_STRPTIME
 			if (strptime(value, "%Y:%m:%d %H:%M:%S", &timeTm) != NULL)
+#else
+			{
+				string valueStr(value);
+
+				timeTm.tm_year = atoi(valueStr.substr(0, 4).c_str());
+				timeTm.tm_mon = atoi(valueStr.substr(5, 2).c_str());
+				timeTm.tm_mday = atoi(valueStr.substr(8, 2).c_str());
+				timeTm.tm_hour = atoi(valueStr.substr(11, 2).c_str());
+				timeTm.tm_min = atoi(valueStr.substr(14, 2).c_str());
+				timeTm.tm_sec = atoi(valueStr.substr(17, 2).c_str());
+			}
+			if ((timeTm.tm_year > 0) &&
+				(timeTm.tm_mon > 0) &&
+				(timeTm.tm_mday > 0))
+#endif
 			{
 				char timeStr[64];
 
