@@ -17,8 +17,9 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <cctype>
-#include <cstring>
+#include <ctype.h>
+#include <string.h>
+#include <iostream>
 
 #include "CJKVTokenizer.h"
 
@@ -37,6 +38,16 @@ static char *unicode_get_utf8(const char *p, unicode_char_t *result)
 static int unicode_strlen(const char *p, int max)
 {
 	return (int)g_utf8_strlen(p, (gssize)max);
+}
+
+static int unicode_isspace(unicode_char_t c)
+{
+	if (g_unichar_isspace(c))
+	{
+		return 1;
+	}
+
+	return 0;
 }
 #endif
 
@@ -123,6 +134,13 @@ static inline unsigned char *_unicode_to_char(unicode_char_t &uchar,
 	if (uchar < 0x80)
 	{
 		p[0] = uchar;
+	}
+	else if (unicode_isspace(uchar))
+	{
+		p[0] = ' ';
+#ifdef DEBUG
+		cout << "_unicode_to_char: space" << endl;
+#endif
 	}
 	else if (uchar < 0x800)
 	{
@@ -226,7 +244,7 @@ void CJKVTokenizer::tokenize(const string &str, TokensHandler &handler,
 		{
 			break;
 		}
-		token_str.clear();
+		token_str.resize(0);
 		if (UTF8_IS_CJKV(temp_uchar_list[i]))
 		{
 			for (unsigned int j = i; j < i + m_nGramSize; j++)
@@ -292,7 +310,7 @@ void CJKVTokenizer::tokenize(const string &str, TokensHandler &handler,
 			{
 				break;
 			}
-			if(token_str.length() > 0)
+			if (token_str.length() > 0)
 			{
 				if (handler.handle_token(token_str, false) == true)
 				{
@@ -312,13 +330,13 @@ void CJKVTokenizer::split(const string &str, vector<string> &token_list)
 
 	for (int i = 0; i < str_utf8_len; i++)
 	{
-		str_ptr = unicode_get_utf8((const char*) str_ptr, &uchar);
+		str_ptr = unicode_get_utf8((const char*)str_ptr, &uchar);
 		if (str_ptr == NULL)
 		{
 			break;
 		}
 
-		token_list.push_back(string((const char*)_unicode_to_char(uchar, p)));
+		token_list.push_back((const char*)_unicode_to_char(uchar, p));
 	}
 }
 
@@ -330,7 +348,7 @@ void CJKVTokenizer::split(const string &str, vector<unicode_char_t> &token_list)
 
 	for (int i = 0; i < str_utf8_len; i++)
 	{
-		str_ptr = unicode_get_utf8((const char*) str_ptr, &uchar);
+		str_ptr = unicode_get_utf8((const char*)str_ptr, &uchar);
 		if (str_ptr == NULL)
 		{
 			break;
