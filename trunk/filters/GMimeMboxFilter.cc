@@ -83,7 +83,11 @@ GMimeMboxFilter::GMimeMboxFilter(const string &mime_type) :
 	m_foundDocument(false)
 {
 	// Initialize gmime
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+	g_mime_init(GMIME_ENABLE_RFC2047_WORKAROUNDS);
+#else
 	g_mime_init(GMIME_INIT_FLAG_UTF8);
+#endif
 }
 
 GMimeMboxFilter::~GMimeMboxFilter()
@@ -298,7 +302,11 @@ void GMimeMboxFilter::finalize(bool fullReset)
 {
 	if (m_pMimeMessage != NULL)
 	{
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+		g_object_unref(G_OBJECT(m_pMimeMessage));
+#else
 		g_mime_object_unref(GMIME_OBJECT(m_pMimeMessage));
+#endif
 		m_pMimeMessage = NULL;
 	}
 	if (m_pParser != NULL)
@@ -341,13 +349,21 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 #endif
 		GMimeMessage *partMessage = g_mime_message_part_get_message(GMIME_MESSAGE_PART(part));
 		part = g_mime_message_get_mime_part(partMessage);
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+		g_object_unref(G_OBJECT(partMessage));
+#else
 		g_mime_object_unref(GMIME_OBJECT(partMessage));
+#endif
 	}
 
 	// Is this a multipart ?
 	if (GMIME_IS_MULTIPART(part))
 	{
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+		m_partsCount = g_mime_multipart_get_count(GMIME_MULTIPART(part));
+#else
 		m_partsCount = g_mime_multipart_get_number(GMIME_MULTIPART(part));
+#endif
 #ifdef DEBUG
 		cout << "GMimeMboxFilter::extractPart: message has " << m_partsCount << " parts" << endl;
 #endif
@@ -364,7 +380,10 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 			}
 
 			char *pPart = extractPart(multiMimePart, contentType, partLen);
+#ifndef GMIME_ENABLE_RFC2047_WORKAROUNDS
 			g_mime_object_unref(multiMimePart);
+#endif
+
 			if (pPart != NULL)
 			{
 				m_partNum = ++partNum;
@@ -386,7 +405,11 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 	GMimePart *mimePart = GMIME_PART(part);
 
 	// Check the content type
-	const GMimeContentType *mimeType = g_mime_part_get_content_type(mimePart);
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+	GMimeContentType *mimeType = g_mime_object_get_content_type(GMIME_OBJECT(mimePart));
+#else
+	const GMimeContentType *mimeType = g_mime_object_get_content_type(GMIME_OBJECT(mimePart));
+#endif
 	// Set this for caller
 	char *partType = g_mime_content_type_to_string(mimeType);
 	if (partType != NULL)
@@ -398,11 +421,19 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 		g_free(partType);
 	}
 
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+	GMimeContentEncoding encodingType = g_mime_part_get_content_encoding(mimePart);
+#else
 	GMimePartEncodingType encodingType = g_mime_part_get_encoding(mimePart);
+#endif
 #ifdef DEBUG
 	cout << "GMimeMboxFilter::extractPart: encoding is " << encodingType << endl;
 #endif
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+	g_mime_part_set_content_encoding(mimePart, GMIME_CONTENT_ENCODING_QUOTEDPRINTABLE);
+#else
 	g_mime_part_set_encoding(mimePart, GMIME_PART_ENCODING_QUOTEDPRINTABLE);
+#endif
 
 	// Create a in-memory output stream
 	GMimeStream *memStream = g_mime_stream_mem_new();
@@ -451,7 +482,7 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 #ifdef DEBUG
 	cout << "GMimeMboxFilter::extractPart: read " << readLen << " bytes" << endl;
 #endif
-	g_mime_stream_unref(memStream);
+	g_object_unref(memStream);
 
 	return pBuffer;
 }
@@ -470,7 +501,11 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 			// No, it doesn't
 			if (m_pMimeMessage != NULL)
 			{
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+				g_object_unref(G_OBJECT(m_pMimeMessage));
+#else
 				g_mime_object_unref(GMIME_OBJECT(m_pMimeMessage));
+#endif
 				m_pMimeMessage = NULL;
 			}
 
@@ -486,7 +521,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 			if (messageEnd > m_messageStart)
 			{
 				// This only applies to Mozilla
-				const char *pMozStatus = g_mime_message_get_header(m_pMimeMessage, "X-Mozilla-Status");
+				const char *pMozStatus = g_mime_object_get_header(GMIME_OBJECT(m_pMimeMessage), "X-Mozilla-Status");
 				if (pMozStatus != NULL)
 				{
 					long int mozFlags = strtol(pMozStatus, NULL, 16);
@@ -504,7 +539,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 					}
 				}
 				// This only applies to Evolution
-				const char *pEvoStatus = g_mime_message_get_header(m_pMimeMessage, "X-Evolution");
+				const char *pEvoStatus = g_mime_object_get_header(GMIME_OBJECT(m_pMimeMessage), "X-Evolution");
 				if (pEvoStatus != NULL)
 				{
 					string evoStatus(pEvoStatus);
@@ -528,7 +563,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 				}
 
 				// How old is this message ?
-				const char *pDate = g_mime_message_get_header(m_pMimeMessage, "Date");
+				const char *pDate = g_mime_object_get_header(GMIME_OBJECT(m_pMimeMessage), "Date");
 				if (pDate != NULL)
 				{
 					m_messageDate = pDate;
@@ -589,7 +624,7 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 						(contentType.length() >= 10) &&
 						(strncasecmp(contentType.c_str(), "text/plain", 10) == 0))
 					{
-						char *pHeaders = g_mime_message_get_headers(m_pMimeMessage);
+						char *pHeaders = g_mime_object_get_headers(GMIME_OBJECT(m_pMimeMessage));
 
 						if (pHeaders != NULL)
 						{
@@ -621,15 +656,23 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 #endif
 
 					free(pPart);
+#ifndef GMIME_ENABLE_RFC2047_WORKAROUNDS
 					g_mime_object_unref(pMimePart);
+#endif
 
 					return true;
 				}
 
+#ifndef GMIME_ENABLE_RFC2047_WORKAROUNDS
 				g_mime_object_unref(pMimePart);
+#endif
 			}
 
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+			g_object_unref(G_OBJECT(m_pMimeMessage));
+#else
 			g_mime_object_unref(GMIME_OBJECT(m_pMimeMessage));
+#endif
 			m_pMimeMessage = NULL;
 		}
 
