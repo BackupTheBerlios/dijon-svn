@@ -138,9 +138,6 @@ static inline unsigned char *_unicode_to_char(unicode_char_t &uchar,
 	else if (unicode_isspace(uchar))
 	{
 		p[0] = ' ';
-#ifdef DEBUG
-		cout << "_unicode_to_char: space" << endl;
-#endif
 	}
 	else if (uchar < 0x800)
 	{
