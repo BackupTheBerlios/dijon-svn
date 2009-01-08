@@ -40,6 +40,16 @@ static int unicode_strlen(const char *p, int max)
 	return (int)g_utf8_strlen(p, (gssize)max);
 }
 
+static int unicode_ispunct(unicode_char_t c)
+{
+	if (g_unichar_ispunct(c))
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
 static int unicode_isspace(unicode_char_t c)
 {
 	if (g_unichar_isspace(c))
@@ -131,13 +141,14 @@ static inline unsigned char *_unicode_to_char(unicode_char_t &uchar,
 	}
 
 	memset(p, 0, sizeof(unicode_char_t) + 1);
-	if (uchar < 0x80)
-	{
-		p[0] = uchar;
-	}
-	else if (unicode_isspace(uchar))
+	if (unicode_isspace(uchar) ||
+		unicode_ispunct(uchar))
 	{
 		p[0] = ' ';
+	}
+	else if (uchar < 0x80)
+	{
+		p[0] = uchar;
 	}
 	else if (uchar < 0x800)
 	{
@@ -269,6 +280,7 @@ void CJKVTokenizer::tokenize(const string &str, TokensHandler &handler,
 		else
 		{
 			unsigned int j = i;
+
 			while (j < temp_token_list.size())
 			{
 				unsigned char *p = (unsigned char*) temp_token_list[j].c_str();
@@ -298,6 +310,7 @@ void CJKVTokenizer::tokenize(const string &str, TokensHandler &handler,
 				{
 					break;
 				}
+
 				token_str += temp_token_list[j];
 				j++;
 			}
@@ -332,7 +345,6 @@ void CJKVTokenizer::split(const string &str, vector<string> &token_list)
 		{
 			break;
 		}
-
 		token_list.push_back((const char*)_unicode_to_char(uchar, p));
 	}
 }
