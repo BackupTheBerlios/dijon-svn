@@ -201,9 +201,10 @@ This item is optional, and defaults to text/plain.
 </filter>
 <filter>
   <mimetype>application/pdf</mimetype>
+  <charset>utf-8</charset>
   <command>pdftotext</command>
-  <arguments>-raw -htmlmeta %s -</arguments>
-  <output>text/html</output>
+  <arguments>-enc UTF-8 -raw %s -</arguments>
+  <output>text/plain</output>
 </filter>
 <filter>
   <mimetype>application/rtf</mimetype>
