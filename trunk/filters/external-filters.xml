@@ -254,7 +254,7 @@ This item is optional, and defaults to text/plain.
 </filter>
 <filter>
   <mimetype>application/x-rpm</mimetype>
-  <command>rpm</command>
+  <command><![CDATA[OUT=`file -bi %s` && [ "$OUT" == "application/x-rpm" ] && rpm]]></command>
   <arguments>-qlp %s</arguments>
 </filter>
 <filter>
