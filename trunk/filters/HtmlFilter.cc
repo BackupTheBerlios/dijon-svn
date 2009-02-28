@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2008 Fabrice Colin
+ *  Copyright 2007-2009 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,9 +22,6 @@
 #include <stdarg.h>
 #endif
 #include <string.h>
-#include <libxml/xmlerror.h>
-#include <libxml/HTMLparser.h>
-#include <libxml/HTMLtree.h>
 #include <iostream>
 #include <algorithm>
 #include <utility>
@@ -51,9 +48,6 @@ DIJON_FILTER_EXPORT bool get_filter_types(std::set<std::string> &mime_types)
 {
 	mime_types.clear();
 	mime_types.insert("text/html");
-
-	// Take this opportunity to initialize HtmlFilter
-	HtmlFilter::initialize();
 
 	return true;
 }
@@ -135,456 +129,39 @@ static unsigned int trimSpaces(string &str)
 	return count;
 }
 
-static string findCharset(const char *pContent)
+static string toLowerCase(const string &str)
 {
-	if (pContent == NULL)
-	{
-		return "";
-	}
+        string tmp(str);
 
+        for_each(tmp.begin(), tmp.end(), ToLower());
+
+        return tmp;
+}
+
+static string findCharset(const string &content)
+{
 	// Is a charset specified ?
-	char *pCharset = strstr(pContent, "charset=");
-	if (pCharset != NULL)
+	string::size_type startPos = content.find("charset=\"");
+	if ((startPos != string::npos) &&
+		(content.size() > 9))
 	{
-		char *pEndOfCharset = strpbrk(pCharset, "\t\r\n \"");
-		if (pEndOfCharset != NULL)
+		string::size_type endPos = content.find('"', 9);
+		
+		if (endPos != string::npos)
 		{
-			return string(pCharset + 8, pEndOfCharset - pCharset - 8);
+			return content.substr(startPos + 9, endPos - startPos - 9);
+		}
+	}
+	else
+	{
+		startPos = content.find("charset=");
+		if (startPos != string::npos)
+		{
+			return content.substr(startPos + 8);
 		}
 	}
 
 	return "";
-}
-
-static bool getInBetweenLinksText(HtmlFilter::ParserState *pState,
-	unsigned int currentLinkIndex)
-{
-	if (pState == NULL)
-	{
-		return false;
-	}
-
-	if ((pState->m_links.empty() == true) ||
-		(pState->m_currentLink.m_index == 0))
-	{
-		string abstract(pState->m_text);
-
-		trimSpaces(abstract);
-
-		pState->m_abstract = abstract;
-
-		return true;
-	}
-
-	// Get the text between the current link and the previous one
-	for (set<Link>::const_iterator linkIter = pState->m_links.begin();
-		linkIter != pState->m_links.end(); ++linkIter)
-	{
-		// Is this the previous link ?
-		if (linkIter->m_index == currentLinkIndex - 1)
-		{
-			// Is there text in between ?
-			if (linkIter->m_endPos + 1 < pState->m_textPos)
-			{
-				unsigned int abstractLen = pState->m_textPos - linkIter->m_endPos - 1;
-				string abstract(pState->m_text.substr(linkIter->m_endPos, abstractLen));
-
-				trimSpaces(abstract);
-
-				// The longer, the better
-				if (abstract.length() > pState->m_abstract.length())
-				{
-					pState->m_abstract = abstract;
-#ifdef DEBUG
-					cout << "HtmlFilter::getInBetweenLinksText: abstract after link "
-						<< linkIter->m_index << endl;
-#endif
-
-					return true;
-				}
-			}
-
-			break;
-		}
-	}
-
-	return false;
-}
-
-static void startHandler(void *pData, const char *pElementName, const char **pAttributes)
-{
-	if ((pData == NULL) ||
-		(pElementName == NULL) ||
-		(strlen(pElementName) == 0))
-	{
-		return;
-	}
-
-	HtmlFilter::ParserState *pState = (HtmlFilter::ParserState *)pData;
-	if (pState == NULL)
-	{
-		return;
-	}
-
-	// Reset this
-	pState->m_lastText.clear();
-
-	// What tag is this ?
-	string tagName(pElementName);
-	for_each(tagName.begin(), tagName.end(), ToLower());
-	if ((pState->m_foundHead == false) &&
-		(tagName == "head"))
-	{
-		// Expect to find META tags and a title
-		pState->m_inHead = true;
-		// One head is enough :-)
-		pState->m_foundHead = true;
-	}
-	else if ((pState->m_inHead == true) &&
-		(tagName == "meta") &&
-		(pAttributes != NULL))
-	{
-		string metaName, metaContent;
-
-		// Get the META tag's name and content
-		for (unsigned int attrNum = 0;
-			(pAttributes[attrNum] != NULL) && (pAttributes[attrNum + 1]); attrNum += 2)
-		{
-			if (strncasecmp(pAttributes[attrNum], "name", 4) == 0)
-			{
-				metaName = pAttributes[attrNum + 1];
-			}
-			else if (strncasecmp(pAttributes[attrNum], "content", 7) == 0)
-			{
-				metaContent = pAttributes[attrNum + 1];
-			}
-			else if (strncasecmp(pAttributes[attrNum], "http-equiv", 10) == 0)
-			{
-				metaName = pAttributes[attrNum + 1];
-			}
-		}
-
-		if ((metaName.empty() == false) &&
-			(metaContent.empty() == false))
-		{
-			// Store this META tag
-			for_each(metaName.begin(), metaName.end(), ToLower());
-			pState->m_metaTags[metaName] = metaContent;
-		}
-	}
-	else if ((pState->m_inHead == true) &&
-		(tagName == "title"))
-	{
-		// Extract title
-		pState->m_appendToTitle = true;
-	}
-	else if (tagName == "body")
-	{
-		// Index text
-		pState->m_appendToText = true;
-	}
-	else if ((tagName == "a") &&
-		(pAttributes != NULL))
-	{
-		pState->m_currentLink.m_url.clear();
-		pState->m_currentLink.m_name.clear();
-
-		// Get the href
-		for (unsigned int attrNum = 0;
-			(pAttributes[attrNum] != NULL) && (pAttributes[attrNum + 1]); attrNum += 2)
-		{
-			if (strncasecmp(pAttributes[attrNum], "href", 4) == 0)
-			{
-				pState->m_currentLink.m_url = pAttributes[attrNum + 1];
-				break;
-			}
-		}
-
-		if (pState->m_currentLink.m_url.empty() == false)
-		{
-			// FIXME: get the NodeInfo to find out the position of this link
-			pState->m_currentLink.m_startPos = pState->m_textPos;
-
-			// Find abstract ?
-			if (pState->m_findAbstract == true)
-			{
-				getInBetweenLinksText(pState, pState->m_currentLink.m_index);
-			}
-
-			// Extract link
-			pState->m_appendToLink = true;
-		}
-	}
-	else if ((tagName == "frame") &&
-		(pAttributes != NULL))
-	{
-		Link frame;
-
-		// Get the name and source
-		for (unsigned int attrNum = 0;
-			(pAttributes[attrNum] != NULL) && (pAttributes[attrNum + 1]); attrNum += 2)
-		{
-			if (strncasecmp(pAttributes[attrNum], "name", 4) == 0)
-			{
-				frame.m_name = pAttributes[attrNum + 1];
-			}
-			else if (strncasecmp(pAttributes[attrNum], "src", 3) == 0)
-			{
-				frame.m_url = pAttributes[attrNum + 1];
-			}
-		}
-
-		if (frame.m_url.empty() == false)
-		{
-			// Store this frame
-			pState->m_frames.insert(frame);
-		}
-	}
-	else if ((tagName == "frameset") ||
-		(tagName == "script") ||
-		(tagName == "style"))
-	{
-		// Skip
-		++pState->m_skip;
-	}
-
-	if (pState->m_appendToText == true)
-	{
-		// Replace tags with spaces
-		pState->m_text += " ";
-		pState->m_textPos += 1;
-	}
-}
-
-static void endHandler(void *pData, const char *pElementName)
-{
-	if ((pData == NULL) ||
-		(pElementName == NULL) ||
-		(strlen(pElementName) == 0))
-	{
-		return;
-	}
-
-	HtmlFilter::ParserState *pState = (HtmlFilter::ParserState *)pData;
-	if (pState == NULL)
-	{
-		return;
-	}
-
-	// Reset state
-	string tagName(pElementName);
-	for_each(tagName.begin(), tagName.end(), ToLower());
-	if (tagName == "head")
-	{
-		pState->m_inHead = false;
-	}
-	else if (tagName == "title")
-	{
-		trimSpaces(pState->m_title);
-		removeCharacters(pState->m_title, "\r\n");
-#ifdef DEBUG
-		cout << "HtmlFilter::endHandler: title is " << pState->m_title << endl;
-#endif
-		pState->m_appendToTitle = false;
-	}
-	else if (tagName == "body")
-	{
-		pState->m_appendToText = false;
-	}
-	else if (tagName == "a")
-	{
-		if (pState->m_currentLink.m_url.empty() == false)
-		{
-			trimSpaces(pState->m_currentLink.m_name);
-			removeCharacters(pState->m_currentLink.m_name, "\r\n");
-
-			pState->m_currentLink.m_endPos = pState->m_textPos;
-
-			// Store this link
-			pState->m_links.insert(pState->m_currentLink);
-			++pState->m_currentLink.m_index;
-		}
-
-		pState->m_appendToLink = false;
-	}
-	else if ((tagName == "frameset") ||
-		(tagName == "script") ||
-		(tagName == "style"))
-	{
-		--pState->m_skip;
-	}
-}
-
-static void charactersHandler(void *pData, const char *pText, int textLen)
-{
-	if ((pData == NULL) ||
-		(pText == NULL) ||
-		(textLen == 0))
-	{
-		return;
-	}
-
-	HtmlFilter::ParserState *pState = (HtmlFilter::ParserState *)pData;
-	if (pState == NULL)
-	{
-		return;
-	}
-
-	if (pState->m_skip > 0)
-	{
-		// Skip this
-		return;
-	}
-
-	string text(pText, textLen);
-
-	// For some reason, this handler might be called twice for the same text !
-	// See http://mail.gnome.org/archives/xml/2002-September/msg00089.html
-	if (pState->m_lastText == text)
-	{
-		// Ignore this
-		return;
-	}
-	pState->m_lastText = text;
-
-	// Append current text
-	if (pState->m_appendToTitle == true)
-	{
-		pState->m_title += text;
-	}
-	else
-	{
-		if (pState->m_appendToText == true)
-		{
-			pState->m_text += text;
-			pState->m_textPos += textLen;
-		}
-
-		// Appending to text and to link are not mutually exclusive operations
-		if (pState->m_appendToLink == true)
-		{
-			pState->m_currentLink.m_name += text;
-		}
-	}
-}
-
-static void cDataHandler(void *pData, const char *pText, int textLen)
-{
-	// Nothing to do
-}
-
-static void whitespaceHandler(void *pData, const xmlChar *pText, int txtLen)
-{
-	if (pData == NULL)
-	{
-		return;
-	}
-
-	HtmlFilter::ParserState *pState = (HtmlFilter::ParserState *)pData;
-	if (pState == NULL)
-	{
-		return;
-	}
-
-	if (pState->m_skip > 0)
-	{
-		// Skip this
-		return;
-	}
-
-	// Append a single space
-	if (pState->m_appendToTitle == true)
-	{
-		pState->m_title += " ";
-	}
-	else
-	{
-		if (pState->m_appendToText == true)
-		{
-			pState->m_text += " ";
-		}
-
-		// Appending to text and to link are not mutually exclusive operations
-		if (pState->m_appendToLink == true)
-		{
-			pState->m_currentLink.m_name += " ";
-		}
-	}
-}
-
-static void commentHandler(void *pData, const char *pText)
-{
-	if (pData == NULL)
-	{
-		return;
-	}
-
-	HtmlFilter::ParserState *pState = (HtmlFilter::ParserState *)pData;
-	if (pState == NULL)
-	{
-		return;
-	}
-
-	if (pText != NULL)
-	{
-		// Obey htdig noindex
-		if (strncasecmp(pText, "htdig_noindex", 13) == 0)
-		{
-			++pState->m_skip;
-		}
-		else if (strncasecmp(pText, "/htdig_noindex", 14) == 0)
-		{
-			--pState->m_skip;
-		}
-	}
-}
-
-static void errorHandler(void *pData, const char *pMsg, ...)
-{
-	if (pData == NULL)
-	{
-		return;
-	}
-
-	HtmlFilter::ParserState *pState = (HtmlFilter::ParserState *)pData;
-	if (pState == NULL)
-	{
-		return;
-	}
-
-#ifdef HAVE_VSNPRINTF
-	va_list args;
-	char pErr[1000];
-
-	va_start(args, pMsg);
-	vsnprintf(pErr, 1000, pMsg, args);
-	va_end(args);
-
-#ifdef DEBUG
-	cout << "HtmlFilter::errorHandler: after " << pState->m_textPos << ": " << pErr << endl;
-#endif
-#endif
-
-	// Be lenient as much as possible
-	xmlResetLastError();
-	// ...but remember the document had errors
-	pState->m_isValid = false;
-}
-
-static void warningHandler(void *pData, const char *pMsg, ...)
-{
-#ifdef HAVE_VSNPRINTF
-	va_list args;
-	char pErr[1000];
-
-	va_start(args, pMsg);
-	vsnprintf(pErr, 1000, pMsg, args);
-	va_end(args);
-
-#ifdef DEBUG
-	cout << "HtmlFilter::warningHandler: " << pErr << endl;
-#endif
-#endif
 }
 
 Link::Link() :
@@ -648,9 +225,311 @@ HtmlFilter::ParserState::~ParserState()
 {
 }
 
+bool HtmlFilter::ParserState::get_links_text(unsigned int currentLinkIndex)
+{
+	if ((m_links.empty() == true) ||
+		(m_currentLink.m_index == 0))
+	{
+		string abstract(m_text);
+
+		trimSpaces(abstract);
+
+		m_abstract = abstract;
+
+		return true;
+	}
+
+	// Get the text between the current link and the previous one
+	for (set<Link>::const_iterator linkIter = m_links.begin();
+		linkIter != m_links.end(); ++linkIter)
+	{
+		// Is this the previous link ?
+		if (linkIter->m_index == currentLinkIndex - 1)
+		{
+			// Is there text in between ?
+			if (linkIter->m_endPos + 1 < m_textPos)
+			{
+				unsigned int abstractLen = m_textPos - linkIter->m_endPos - 1;
+				string abstract(m_text.substr(linkIter->m_endPos, abstractLen));
+
+				trimSpaces(abstract);
+
+				// The longer, the better
+				if (abstract.length() > m_abstract.length())
+				{
+					m_abstract = abstract;
+#ifdef DEBUG
+					cout << "HtmlFilter::get_links_text: abstract after link "
+						<< linkIter->m_index << ": " << m_abstract << endl;
+#endif
+
+					return true;
+				}
+			}
+
+			break;
+		}
+	}
+
+	return false;
+}
+
+void HtmlFilter::ParserState::append_whitespace(void)
+{
+	// Append a single space
+	if (m_appendToTitle == true)
+	{
+		m_title += " ";
+	}
+	else
+	{
+		if (m_appendToText == true)
+		{
+			m_text += " ";
+			m_textPos += 1;
+		}
+
+		// Appending to text and to link are not mutually exclusive operations
+		if (m_appendToLink == true)
+		{
+			m_currentLink.m_name += " ";
+		}
+	}
+}
+
+void HtmlFilter::ParserState::append_text(const string &text)
+{
+	// Append current text
+	if (m_appendToTitle == true)
+	{
+		m_title += text;
+	}
+	else
+	{
+		if (m_appendToText == true)
+		{
+			m_text += text;
+			m_textPos += text.length();
+		}
+
+		// Appending to text and to link are not mutually exclusive operations
+		if (m_appendToLink == true)
+		{
+			m_currentLink.m_name += text;
+		}
+	}
+}
+
+void HtmlFilter::ParserState::process_text(const string &text)
+{
+	if (text.empty() == true)
+	{
+		return;
+	}
+
+	if (m_skip > 0)
+	{
+		// Skip this
+		return;
+	}
+
+        string::size_type nonSpace = text.find_first_not_of(" \t\n\r");
+	bool appendSpace = false;
+
+        if (nonSpace > 0)
+	{
+		appendSpace = true;
+	}
+        while (nonSpace != string::npos)
+	{
+		if (appendSpace == true)
+		{
+			append_whitespace();
+		}
+
+		string::size_type nonSpaceEnd = text.find_first_of(" \t\n\r", nonSpace);
+		if (nonSpaceEnd != string::npos)
+		{
+			appendSpace = true;
+			append_text(text.substr(nonSpace, nonSpaceEnd - nonSpace));
+
+			nonSpace = text.find_first_not_of(" \t\n\r", nonSpaceEnd + 1);
+		}
+		else
+		{
+			append_text(text.substr(nonSpace, text.size() - nonSpace));
+
+			nonSpace = string::npos;
+		}
+	}
+}
+
+void HtmlFilter::ParserState::opening_tag(const string &tag)
+{
+	if (tag.empty() == true)
+	{
+		return;
+	}
+
+	// What tag is this ?
+	string tagName(toLowerCase(tag));
+	if ((m_foundHead == false) &&
+		(tagName == "head"))
+	{
+		// Expect to find META tags and a title
+		m_inHead = true;
+		// One head is enough :-)
+		m_foundHead = true;
+	}
+	else if ((m_inHead == true) &&
+		(tagName == "meta"))
+	{
+		string metaName, metaContent, httpEquiv;
+
+		// Get the META tag's name and content
+		get_parameter("name", metaName);
+		get_parameter("content", metaContent);
+
+		if ((metaName.empty() == false) &&
+			(metaContent.empty() == false))
+		{
+			// Store this META tag
+			metaName = toLowerCase(metaName);
+			m_metaTags[metaName] = metaContent;
+		}
+
+		// Is a charset specified ?
+		get_parameter("http-equiv", httpEquiv);
+		if ((metaContent.empty() == false) &&
+			(m_charset.empty() == true))
+		{
+			metaContent = toLowerCase(metaContent);
+			m_charset = findCharset(metaContent);
+		}
+
+		// Look for a HTML5 charset definition
+		if (m_charset.empty() == true)
+		{
+			get_parameter("charset", m_charset);
+		}
+	}
+	else if ((m_inHead == true) &&
+		(tagName == "title"))
+	{
+		// Extract title
+		m_appendToTitle = true;
+	}
+	else if (tagName == "body")
+	{
+		// Index text
+		m_appendToText = true;
+	}
+	else if (tagName == "a")
+	{
+		m_currentLink.m_url.clear();
+		m_currentLink.m_name.clear();
+
+		// Get the href
+		get_parameter("href", m_currentLink.m_url);
+
+		if (m_currentLink.m_url.empty() == false)
+		{
+			// FIXME: get the NodeInfo to find out the position of this link
+			m_currentLink.m_startPos = m_textPos;
+
+			// Find abstract ?
+			if (m_findAbstract == true)
+			{
+				get_links_text(m_currentLink.m_index);
+			}
+
+			// Extract link
+			m_appendToLink = true;
+		}
+	}
+	else if (tagName == "frame")
+	{
+		Link frame;
+
+		// Get the name and source
+		get_parameter("name", frame.m_name);
+		get_parameter("src", frame.m_url);
+
+		if (frame.m_url.empty() == false)
+		{
+			// Store this frame
+			m_frames.insert(frame);
+		}
+	}
+	else if ((tagName == "frameset") ||
+		(tagName == "script") ||
+		(tagName == "style"))
+	{
+		// Skip
+		++m_skip;
+	}
+
+	if (m_appendToText == true)
+	{
+		// Replace tags with spaces
+		m_text += " ";
+		m_textPos += 1;
+	}
+}
+
+void HtmlFilter::ParserState::closing_tag(const string &tag)
+{
+	if (tag.empty() == true)
+	{
+		return;
+	}
+
+	// Reset state
+	string tagName(toLowerCase(tag));
+	if (tagName == "head")
+	{
+		m_inHead = false;
+	}
+	else if (tagName == "title")
+	{
+		trimSpaces(m_title);
+		removeCharacters(m_title, "\r\n");
+#ifdef DEBUG
+		cout << "HtmlFilter::endHandler: title is " << m_title << endl;
+#endif
+		m_appendToTitle = false;
+	}
+	else if (tagName == "body")
+	{
+		m_appendToText = false;
+	}
+	else if (tagName == "a")
+	{
+		if (m_currentLink.m_url.empty() == false)
+		{
+			trimSpaces(m_currentLink.m_name);
+			removeCharacters(m_currentLink.m_name, "\r\n");
+
+			m_currentLink.m_endPos = m_textPos;
+
+			// Store this link
+			m_links.insert(m_currentLink);
+			++m_currentLink.m_index;
+		}
+
+		m_appendToLink = false;
+	}
+	else if ((tagName == "frameset") ||
+		(tagName == "script") ||
+		(tagName == "style"))
+	{
+		--m_skip;
+	}
+}
+
 HtmlFilter::HtmlFilter(const string &mime_type) :
 	Filter(mime_type),
-	m_pState(NULL),
+	m_pParserState(NULL),
 	m_skipText(false),
 	m_findAbstract(true)
 {
@@ -659,16 +538,6 @@ HtmlFilter::HtmlFilter(const string &mime_type) :
 HtmlFilter::~HtmlFilter()
 {
 	rewind();
-}
-
-void HtmlFilter::initialize(void)
-{
-	xmlInitParser();
-}
-
-void HtmlFilter::shutdown(void)
-{
-	xmlCleanupParser();
 }
 
 bool HtmlFilter::is_data_input_ok(DataInput input) const
@@ -738,10 +607,10 @@ bool HtmlFilter::set_document_string(const string &data_str)
 #ifdef DEBUG
 		cout << "HtmlFilter::set_document_string: removed " << htmlPos << " characters" << endl;
 #endif
-		return parse_html(data_str.c_str() + htmlPos, (unsigned int)(data_str.length() - htmlPos));
+		return parse_html(data_str.substr(htmlPos));
 	}
 
-	return parse_html(data_str.c_str(), (unsigned int)data_str.length());
+	return parse_html(data_str);
 }
 
 bool HtmlFilter::set_document_file(const string &file_path, bool unlink_when_done)
@@ -756,7 +625,7 @@ bool HtmlFilter::set_document_uri(const string &uri)
 
 bool HtmlFilter::has_documents(void) const
 {
-	if (m_pState != NULL)
+	if (m_pParserState != NULL)
 	{
 		return true;
 	}
@@ -766,16 +635,16 @@ bool HtmlFilter::has_documents(void) const
 
 bool HtmlFilter::next_document(void)
 {
-	if (m_pState != NULL)
+	if (m_pParserState != NULL)
 	{
-		m_metaData["charset"] = m_pState->m_charset;
-		m_metaData["title"] = m_pState->m_title;
-		m_metaData["content"] = m_pState->m_text;
-		m_metaData["abstract"] = m_pState->m_abstract;
+		m_metaData["charset"] = m_pParserState->m_charset;
+		m_metaData["title"] = m_pParserState->m_title;
+		m_metaData["content"] = m_pParserState->m_text;
+		m_metaData["abstract"] = m_pParserState->m_abstract;
 		m_metaData["ipath"] = "";
 		m_metaData["mimetype"] = "text/plain";
-		for (map<string, string>::const_iterator iter = m_pState->m_metaTags.begin();
-			iter != m_pState->m_metaTags.end(); ++iter)
+		for (map<string, string>::const_iterator iter = m_pParserState->m_metaTags.begin();
+			iter != m_pParserState->m_metaTags.end(); ++iter)
 		{
 			if (iter->first == "charset")
 			{
@@ -785,8 +654,8 @@ bool HtmlFilter::next_document(void)
 		}
 		// FIXME: shove the links in there somehow !
 
-		delete m_pState;
-		m_pState = NULL;
+		delete m_pParserState;
+		m_pParserState = NULL;
 
 		return true;
 	}
@@ -813,135 +682,57 @@ void HtmlFilter::rewind(void)
 {
 	Filter::rewind();
 
-	if (m_pState != NULL)
+	if (m_pParserState != NULL)
 	{
-		delete m_pState;
-		m_pState = NULL;
+		delete m_pParserState;
+		m_pParserState = NULL;
 	}
 }
 
-bool HtmlFilter::parse_html(const char *pData, unsigned int dataLen)
+bool HtmlFilter::parse_html(const string &html)
 {
-	htmlSAXHandler saxHandler;
-	xmlCharEncoding encoding = XML_CHAR_ENCODING_NONE;
-	string utf8Content;
-	const char *pContent = pData;
 
-	if ((pData == NULL) ||
-		(dataLen == 0))
+	if (html.length() == true)
 	{
 		return false;
 	}
 
-	// Setup the SAX handler
-	memset((void*)&saxHandler, 0, sizeof(htmlSAXHandler));
-	saxHandler.startElement = (startElementSAXFunc)&startHandler;
-	saxHandler.endElement = (endElementSAXFunc)&endHandler;
-	saxHandler.characters = (charactersSAXFunc)&charactersHandler;
-	saxHandler.cdataBlock = (charactersSAXFunc)&cDataHandler;
-	saxHandler.ignorableWhitespace = (ignorableWhitespaceSAXFunc)&whitespaceHandler;
-	saxHandler.comment = (commentSAXFunc)&commentHandler;
-	saxHandler.fatalError = (fatalErrorSAXFunc)&errorHandler;
-	saxHandler.error = (errorSAXFunc)&errorHandler;
-	saxHandler.warning = (warningSAXFunc)&warningHandler;
-
-	m_pState = new ParserState();
+	m_pParserState = new ParserState();
 	if (m_skipText == true)
 	{
-		++m_pState->m_skip;
+		++m_pParserState->m_skip;
 	}
 
-	// Is a charset specified ?
-	m_pState->m_charset = findCharset(pContent);
-	if (m_pState->m_charset.empty() == false)
-	{
-#ifdef DEBUG
-		cout << "HtmlFilter::parse_html: found charset " << m_pState->m_charset << endl;
-#endif
-		if ((m_pState->m_charset.find("ascii") != string::npos) ||
-			(m_pState->m_charset.find("ASCII") != string::npos))
-		{
-			encoding = XML_CHAR_ENCODING_ASCII;
-		}
-		else
-		{
-			encoding = xmlParseCharEncoding(m_pState->m_charset.c_str());
-			if (encoding == XML_CHAR_ENCODING_ERROR)
-			{
-				encoding = XML_CHAR_ENCODING_NONE;
-				cerr << "HTML parser doesn't support charset " << m_pState->m_charset << endl;
-
-				if (m_convertToUTF8Func != NULL)
-				{
-					// FIXME: provide a xmlCharEncodingHandler for this charset
-					utf8Content = (*m_convertToUTF8Func)(pContent, dataLen, m_pState->m_charset);
-					if (utf8Content.empty() == false)
-					{
-						string charsetStr("charset=");
-
-						encoding = XML_CHAR_ENCODING_UTF8;
-
-						// Look for and modify the charset specified in the document or
-						// the parser might get very confused
-						charsetStr += m_pState->m_charset;
-						string::size_type charsetPos = utf8Content.find(charsetStr);
-						if (charsetPos != string::npos)
-						{
-							utf8Content.replace(charsetPos, charsetStr.length(), "charset=utf-8");
-						}
-
-						pContent = utf8Content.c_str();
-						dataLen = (unsigned int)utf8Content.length();
-					}
-				}
-			}
-		}
-	}
-	// Output will be in UTF-8
-	m_pState->m_charset = "utf-8";
-
-#ifdef DEBUG
-	cout << "HtmlFilter::parse_html: input encoding is " << encoding << endl;
-#endif
-	htmlParserCtxtPtr pContext = htmlCreatePushParserCtxt(&saxHandler, (void*)m_pState,
-		pContent, (int)dataLen, "", encoding);
-	if (pContext != NULL)
-	{
-		xmlSubstituteEntitiesDefault(1);
-		xmlCtxtUseOptions(pContext, 0);
-
-		// Parse
-		htmlParseChunk(pContext, pContent, (int)dataLen, 0);
-
-		// Free
-		htmlParseChunk(pContext, pContent, 0, 1);
-		int ret = pContext->wellFormed;
-		xmlDocPtr pDoc = pContext->myDoc;
-		xmlFreeParserCtxt(pContext);
-		if (!ret)
-		{
-#ifdef DEBUG
-			cout << "HtmlFilter::parse_html: freeing document" << endl;
-#endif
-			xmlFreeDoc(pDoc);
-		}
-	}
-	else
-	{
-		cerr << "Couldn't create HTML parser context" << endl;
-	}
+	// FIXME: parse here
+	m_pParserState->parse_html(html);
 
 	// The text after the last link might make a good abstract
-	if (m_pState->m_findAbstract == true)
+	if (m_pParserState->m_findAbstract == true)
 	{
-		getInBetweenLinksText(m_pState, m_pState->m_currentLink.m_index);
+		m_pParserState->get_links_text(m_pParserState->m_currentLink.m_index);
 	}
 
 	// Append META keywords, if any were found
-	map<string, string>::iterator keywordsIter = m_pState->m_metaTags.find("keywords");
-	if (keywordsIter != m_pState->m_metaTags.end())
+	map<string, string>::iterator keywordsIter = m_pParserState->m_metaTags.find("keywords");
+	if (keywordsIter != m_pParserState->m_metaTags.end())
 	{
-		m_pState->m_text += keywordsIter->second;
+		m_pParserState->m_text += keywordsIter->second;
+	}
+#ifdef DEBUG
+	cout << "HtmlFilter::parse_html: " << m_pParserState->m_text.size() << " bytes of text" << endl;
+#endif
+
+	// Assume charset is UTF-8 by default
+	if (m_pParserState->m_charset.empty() == true)
+	{
+		m_pParserState->m_charset = "utf-8";
+	}
+	else
+	{
+		m_pParserState->m_charset = toLowerCase(m_pParserState->m_charset);
+#ifdef DEBUG
+		cout << "HtmlFilter::parse_html: found charset " << m_pParserState->m_charset << endl;
+#endif
 	}
 
 	return true;
@@ -951,9 +742,9 @@ bool HtmlFilter::get_links(set<Link> &links) const
 {
 	links.clear();
 
-	if (m_pState != NULL)
+	if (m_pParserState != NULL)
 	{
-		copy(m_pState->m_links.begin(), m_pState->m_links.end(),
+		copy(m_pParserState->m_links.begin(), m_pParserState->m_links.end(),
 			inserter(links, links.begin()));
 
 		return true;

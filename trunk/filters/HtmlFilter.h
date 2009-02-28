@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2008 Fabrice Colin
+ *  Copyright 2007-2009 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #include <set>
 #include <map>
 
+#include "HtmlParser.h"
 #include "Filter.h"
 
 namespace Dijon
@@ -54,14 +55,6 @@ namespace Dijon
 	/// Destroys the filter.
 	virtual ~HtmlFilter();
 
-
-	/// initializes the 
-	static void initialize(void);
-
-	static void shutdown(void);
-
-
-	// Information.
 
 	/// Returns what data the filter requires as input.
 	virtual bool is_data_input_ok(DataInput input) const;
@@ -130,16 +123,21 @@ namespace Dijon
 	/// Returns the links set.
 	bool get_links(std::set<Link> &links) const;
 
-	class ParserState
+	class ParserState : public HtmlParser
 	{
 		public:
 			ParserState();
-			~ParserState();
+			virtual ~ParserState();
+
+			virtual void process_text(const string &text);
+			virtual void opening_tag(const string &tag);
+			virtual void closing_tag(const string &tag);
+
+			bool get_links_text(unsigned int currentLinkIndex);
 
 			bool m_isValid;
 			bool m_findAbstract;
 			unsigned int m_textPos;
-			std::string m_lastText;
 			bool m_inHead;
 			bool m_foundHead;
 			bool m_appendToTitle;
@@ -154,17 +152,22 @@ namespace Dijon
 			std::set<Link> m_links;
 			std::set<Link> m_frames;
 			std::map<std::string, std::string> m_metaTags;
+
+		protected:
+			void append_whitespace(void);
+			void append_text(const string &text);
+
 	};
 
     protected:
-	ParserState *m_pState;
+	ParserState *m_pParserState;
 	std::string m_error;
 	bool m_skipText;
 	bool m_findAbstract;
 
 	virtual void rewind(void);
 
-	bool parse_html(const char *pData, unsigned int dataLen);
+	bool parse_html(const string &html);
 
     private:
 	/// HtmlFilter objects cannot be copied.
