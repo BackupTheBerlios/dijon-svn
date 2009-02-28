@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007-2009 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,9 +25,13 @@
 
 #ifndef DIJON_FILTER_EXPORT
 #if defined __GNUC__ && (__GNUC__ >= 4)
-  #define DIJON_FILTER_EXPORT __attribute__ ((visibility("default")))
+  #define DIJON_FILTER_EXPORT     __attribute__ ((visibility("default")))
+  #define DIJON_FILTER_INITIALIZE __attribute__((constructor))
+  #define DIJON_FILTER_SHUTDOWN   __attribute__((destructor))
 #else
   #define DIJON_FILTER_EXPORT
+  #define DIJON_FILTER_INITIALIZE
+  #define DIJON_FILTER_SHUTDOWN
 #endif
 #endif
 

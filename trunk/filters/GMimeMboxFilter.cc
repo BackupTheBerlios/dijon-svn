@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2008 Fabrice Colin
+ *  Copyright 2007-2009 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,6 +68,25 @@ DIJON_FILTER_EXPORT Filter *get_filter(const std::string &mime_type)
 {
 	return new GMimeMboxFilter(mime_type);
 }
+
+DIJON_FILTER_INITIALIZE void initialize_gmime(void)
+{
+	// Initialize gmime
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+	g_mime_init(GMIME_ENABLE_RFC2047_WORKAROUNDS);
+#else
+	g_mime_init(GMIME_INIT_FLAG_UTF8);
+#endif
+#ifdef DEBUG
+	cout << "GMimeMboxFilter: initialized" << endl;
+#endif
+}
+
+DIJON_FILTER_SHUTDOWN void shutdown_gmime(void)
+{
+	// Shutdown gmime
+	g_mime_shutdown();
+}
 #endif
 
 GMimeMboxFilter::GMimeMboxFilter(const string &mime_type) :
@@ -82,20 +101,11 @@ GMimeMboxFilter::GMimeMboxFilter(const string &mime_type) :
 	m_messageStart(0),
 	m_foundDocument(false)
 {
-	// Initialize gmime
-#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
-	g_mime_init(GMIME_ENABLE_RFC2047_WORKAROUNDS);
-#else
-	g_mime_init(GMIME_INIT_FLAG_UTF8);
-#endif
 }
 
 GMimeMboxFilter::~GMimeMboxFilter()
 {
 	finalize(true);
-
-	// Shutdown gmime
-	g_mime_shutdown();
 }
 
 bool GMimeMboxFilter::is_data_input_ok(DataInput input) const
