@@ -143,10 +143,10 @@ static string findCharset(const string &content)
 	// Is a charset specified ?
 	string::size_type startPos = content.find("charset=\"");
 	if ((startPos != string::npos) &&
-		(content.size() > 9))
+		(content.length() > 9))
 	{
-		string::size_type endPos = content.find('"', 9);
-		
+		string::size_type endPos = content.find('"', startPos + 9);
+
 		if (endPos != string::npos)
 		{
 			return content.substr(startPos + 9, endPos - startPos - 9);
