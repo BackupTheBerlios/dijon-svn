@@ -107,7 +107,7 @@ namespace Dijon
 
 	virtual void rewind(void);
 
-	bool run_command(const std::string &command);
+	bool run_command(const std::string &command, bool limit_output);
 
     private:
 	/// ExternalFilter objects cannot be copied.

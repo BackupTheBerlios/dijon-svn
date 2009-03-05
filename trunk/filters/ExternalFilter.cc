@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2008 Fabrice Colin
+ *  Copyright 2007-2009 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,15 +37,19 @@
 #endif
 #endif
 #include <unistd.h>
+#include <string.h>
 #include <sstream>
+#include <algorithm>
 #include <iostream>
-#include <cstring>
 #include <libxml/xmlreader.h>
 
 #include "ExternalFilter.h"
 
+#define MAX_OUTPUT_SIZE 5242880
+
 using std::cout;
 using std::endl;
+using std::min;
 using std::string;
 using std::stringstream;
 using std::set;
@@ -178,9 +182,12 @@ bool ExternalFilter::next_document(void)
 		(m_filePath.empty() == false) &&
 		(m_commandsByType.empty() == false))
 	{
+		string outputType("text/plain");
+		bool limitOutput = true;
+
 		m_doneWithDocument = true;
 
-		// Is this type supported ?
+		// Is this type supported ? Assume text/plain if not specified
 		map<string, string>::const_iterator commandIter = m_commandsByType.find(m_mimeType);
 		if ((commandIter == m_commandsByType.end()) ||
 			(commandIter->second.empty() == true))
@@ -188,21 +195,23 @@ bool ExternalFilter::next_document(void)
 			return false;
 		}
 
-		if (run_command(commandIter->second) == true)
+		// What's the output type ?
+		map<string, string>::const_iterator outputIter = m_outputsByType.find(m_mimeType);
+		if (outputIter != m_outputsByType.end())
+		{
+			outputType = outputIter->second;
+		}
+
+		if (outputType != "text/plain")
+		{
+			limitOutput = false;
+		}
+
+		if (run_command(commandIter->second, limitOutput) == true)
 		{
 			// Fill in general details
 			m_metaData["uri"] = "file://" + m_filePath;
-			// What's the output type ?
-			map<string, string>::const_iterator outputIter = m_outputsByType.find(m_mimeType);
-			if (outputIter == m_outputsByType.end())
-			{
-				// Assume it's plain text if undefined
-				m_metaData["mimetype"] = "text/plain";
-			}
-			else
-			{
-				m_metaData["mimetype"] = outputIter->second;
-			}
+			m_metaData["mimetype"] = outputType;
 			// Is it in a known charset ?
 			map<string, string>::const_iterator charsetIter = m_charsetsByType.find(m_mimeType);
 			if (charsetIter != m_charsetsByType.end())
@@ -354,7 +363,7 @@ void ExternalFilter::rewind(void)
 }
 
 // This function is heavily inspired by Xapian Omega's stdout_to_string()
-bool ExternalFilter::run_command(const string &command)
+bool ExternalFilter::run_command(const string &command, bool limit_output)
 {
 	string commandLine(command);
 	bool replacedParam = false, gotOutput = false;
@@ -423,18 +432,28 @@ bool ExternalFilter::run_command(const string &command)
 		}
 		else
 		{
+			size_t outputSize = (size_t)outStats.st_size;
+
+			if (limit_output == true)
+			{
+				outputSize = min((size_t)outStats.st_size, (size_t)MAX_OUTPUT_SIZE);
+#ifdef DEBUG
+				cout << "ExternalFilter::run_command: stopping at " << outputSize << endl;
+#endif
+			}
+
 			// Grab the output
-			char *fileBuffer = new char[outStats.st_size + 1];
+			char *fileBuffer = new char[outputSize + 1];
 			if (fileBuffer != NULL)
 			{
-				ssize_t bytesRead = read(outFd, (void*)fileBuffer, outStats.st_size);
+				ssize_t bytesRead = read(outFd, (void*)fileBuffer, outputSize);
 				if (bytesRead > 0)
 				{
 					fileBuffer[bytesRead] = '\0';
 
 					m_metaData["content"] = string(fileBuffer, (unsigned int)bytesRead);
 					stringstream numStream;
-					numStream << outStats.st_size;
+					numStream << outputSize;
 					m_metaData["size"] = numStream.str();
 					gotOutput = true;
 				}
@@ -512,8 +531,16 @@ bool ExternalFilter::run_command(const string &command)
 	gotOutput = true;
 	do
 	{
-		char readBuffer[4096];
+		if ((limit_output == true) && 
+			(totalSize >= MAX_OUTPUT_SIZE))
+		{
+#ifdef DEBUG
+			cout << "ExternalFilter::run_command: stopping at " << totalSize << endl;
+#endif
+			break;
+		}
 
+		char readBuffer[4096];
 		bytesRead = read(fds[0], readBuffer, 4096);
 		if (bytesRead > 0)
 		{

@@ -260,7 +260,7 @@ bool HtmlFilter::ParserState::get_links_text(unsigned int currentLinkIndex)
 					m_abstract = abstract;
 #ifdef DEBUG
 					cout << "HtmlFilter::get_links_text: abstract after link "
-						<< linkIter->m_index << ": " << m_abstract << endl;
+						<< linkIter->m_index << " to " << linkIter->m_url << endl;
 #endif
 
 					return true;
