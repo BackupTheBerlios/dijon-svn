@@ -263,19 +263,16 @@ This item is optional, and defaults to text/plain.
   <arguments>-c %s</arguments>
 </filter>
 <filter>
-  <mimetype>application/x-tar</mimetype>
-  <command>tar</command>
-  <arguments>tvf %s</arguments>
-</filter>
-<filter>
   <mimetype>application/x-compressed-tar</mimetype>
-  <command>tar</command>
-  <arguments>tzvf %s</arguments>
+  <command>gunzip</command>
+  <arguments>-c %s</arguments>
+  <output>application/x-tar</output>
 </filter>
 <filter>
   <mimetype>application/x-bzip-compressed-tar</mimetype>
-  <command>tar</command>
-  <arguments>tjvf %s</arguments>
+  <command>bunzip2</command>
+  <arguments>-c %s</arguments>
+  <output>application/x-tar</output>
 </filter>
 <filter>
   <mimetype>application/zip</mimetype>
