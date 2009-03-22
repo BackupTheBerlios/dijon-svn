@@ -166,6 +166,7 @@ bool TarFilter::next_document(const std::string &ipath)
 	stringstream sizeStream;
 	size_t size = th_get_size(m_pHandle);
 
+	m_content.clear();
 	m_metaData.clear();
 	m_metaData["title"] = pFileName;
 	m_metaData["ipath"] = pFileName;
@@ -177,21 +178,19 @@ bool TarFilter::next_document(const std::string &ipath)
 
 	if (TH_ISDIR(m_pHandle))
 	{
-		m_metaData["content"] = "";
 		m_metaData["mimetype"] = "x-directory/normal";
 	}
 	else if (TH_ISSYM(m_pHandle))
 	{
-		m_metaData["content"] = "";
 		m_metaData["mimetype"] = "inode/symlink";
 	}
 	else if (TH_ISREG(m_pHandle))
 	{
-		string content;
 		char pBuffer[T_BLOCKSIZE];
 		size_t blockNum = size;
 		bool readFile = true;
 
+		m_content.reserve(size);
 		while (blockNum > 0)
 		{
 			int readSize = tar_block_read(m_pHandle, pBuffer);
@@ -203,21 +202,19 @@ bool TarFilter::next_document(const std::string &ipath)
 
 			if (blockNum > T_BLOCKSIZE)
 			{
-				content += string(pBuffer, T_BLOCKSIZE);
+				m_content.append(pBuffer, T_BLOCKSIZE);
 				blockNum -= T_BLOCKSIZE;
 			}
 			else
 			{
-				content += string(pBuffer, blockNum);
+				m_content.append(pBuffer, blockNum);
 				blockNum = 0;
 			}
 		}
 
-		if (readFile == true)
-		{
-			m_metaData["content"] = content;
-		}
 		m_metaData["mimetype"] = "SCAN";
+
+		return readFile;
 	}
 
 	return true;

@@ -89,6 +89,36 @@ DIJON_FILTER_SHUTDOWN void shutdown_gmime(void)
 }
 #endif
 
+static bool read_stream(GMimeStream *memStream, dstring &fileBuffer)
+{
+	char readBuffer[4096];
+	ssize_t bytesRead = 0;
+	bool gotOutput = true;
+
+	do
+	{
+		bytesRead = g_mime_stream_read(memStream, readBuffer, 4096);
+		if (bytesRead > 0)
+		{
+			fileBuffer.append(readBuffer, bytesRead);
+		}
+		else if (bytesRead == -1)
+		{
+			// An error occured
+			if (errno != EINTR)
+			{
+				gotOutput = false;
+				break;
+			}
+
+			// Try again
+			bytesRead = 1;
+		}
+	} while (bytesRead > 0);
+
+	return gotOutput;
+}
+
 GMimeMboxFilter::GMimeMboxFilter(const string &mime_type) :
 	Filter(mime_type),
 	m_returnHeaders(false),
@@ -342,13 +372,11 @@ void GMimeMboxFilter::finalize(bool fullReset)
 	}
 }
 
-char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize_t &partLen)
+bool GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, dstring &partBuffer)
 {
-	char *pBuffer = NULL;
-
 	if (part == NULL)
 	{
-		return NULL;
+		return false;
 	}
 
 	// Message parts may be nested
@@ -389,15 +417,15 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 				continue;
 			}
 
-			char *pPart = extractPart(multiMimePart, contentType, partLen);
+			bool gotPart = extractPart(multiMimePart, contentType, partBuffer);
 #ifndef GMIME_ENABLE_RFC2047_WORKAROUNDS
 			g_mime_object_unref(multiMimePart);
 #endif
 
-			if (pPart != NULL)
+			if (gotPart == true)
 			{
 				m_partNum = ++partNum;
-				return pPart;
+				return true;
 			}
 		}
 
@@ -410,7 +438,7 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 #ifdef DEBUG
 		cout << "GMimeMboxFilter::extractPart: not a part" << endl;
 #endif
-		return NULL;
+		return false;
 	}
 	GMimePart *mimePart = GMIME_PART(part);
 
@@ -480,21 +508,31 @@ char *GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, ssize
 		g_object_unref(dataWrapper);
 	}
 	g_mime_stream_flush(memStream);
-	partLen = g_mime_stream_length(memStream);
+	ssize_t partLen = g_mime_stream_length(memStream);
 #ifdef DEBUG
 	cout << "GMimeMboxFilter::extractPart: part is " << partLen << " bytes long" << endl;
 #endif
 
-	pBuffer = (char*)malloc(partLen + 1);
-	pBuffer[partLen] = '\0';
+	if ((m_returnHeaders == true) &&
+		(contentType.length() >= 10) &&
+		(strncasecmp(contentType.c_str(), "text/plain", 10) == 0))
+	{
+		char *pHeaders = g_mime_object_get_headers(GMIME_OBJECT(m_pMimeMessage));
+
+		if (pHeaders != NULL)
+		{
+			partBuffer = pHeaders;
+			partBuffer += "\n";
+			free(pHeaders);
+		}
+	}
+
 	g_mime_stream_reset(memStream);
-	ssize_t readLen = g_mime_stream_read(memStream, pBuffer, partLen);
-#ifdef DEBUG
-	cout << "GMimeMboxFilter::extractPart: read " << readLen << " bytes" << endl;
-#endif
+	partBuffer.reserve(partLen);
+	read_stream(memStream, partBuffer);
 	g_object_unref(memStream);
 
-	return pBuffer;
+	return true;
 }
 
 bool GMimeMboxFilter::extractMessage(const string &subject)
@@ -623,27 +661,11 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 			if (pMimePart != NULL)
 			{
 				// Extract the part's text
-				pPart = extractPart(pMimePart, contentType, partLength);
-				if (pPart != NULL)
+				m_content.clear();
+				if (extractPart(pMimePart, contentType, m_content) == true)
 				{
-					string content;
 					string location("mailbox://");
 					char posStr[128];
-
-					if ((m_returnHeaders == true) &&
-						(contentType.length() >= 10) &&
-						(strncasecmp(contentType.c_str(), "text/plain", 10) == 0))
-					{
-						char *pHeaders = g_mime_object_get_headers(GMIME_OBJECT(m_pMimeMessage));
-
-						if (pHeaders != NULL)
-						{
-							content = pHeaders;
-							content += "\n";
-							free(pHeaders);
-						}
-					}
-					content += string(pPart, (unsigned int)partLength);
 
 					// FIXME: use the same scheme as Mozilla
 					location += m_filePath;
@@ -653,10 +675,9 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 					m_metaData["title"] = msgSubject;
 					m_metaData["uri"] = location;
 					m_metaData["mimetype"] = contentType;
-					m_metaData["content"] = content;
 					m_metaData["date"] = m_messageDate;
 					m_metaData["charset"] = m_partCharset;
-					snprintf(posStr, 128, "%u", partLength);
+					snprintf(posStr, 128, "%u", m_content.length());
 					m_metaData["size"] = posStr;
 					snprintf(posStr, 128, "o=%u&p=%d", m_messageStart, max(m_partNum - 1, 0));
 					m_metaData["ipath"] = posStr;
@@ -665,7 +686,6 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 						<< "?" << posStr << endl;
 #endif
 
-					free(pPart);
 #ifndef GMIME_ENABLE_RFC2047_WORKAROUNDS
 					g_mime_object_unref(pMimePart);
 #endif

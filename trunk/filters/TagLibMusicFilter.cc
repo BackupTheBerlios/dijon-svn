@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2008 Fabrice Colin
+ *  Copyright 2007-2009 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -122,6 +122,9 @@ bool TagLibMusicFilter::next_document(void)
 	{
 		m_parseDocument = false;
 
+		m_content.clear();
+		m_metaData.clear();
+
 		TagLib::FileRef fileRef(m_filePath.c_str(), false);
 		if (fileRef.isNull() == false)
 		{
@@ -136,17 +139,16 @@ bool TagLibMusicFilter::next_document(void)
 				trackTitle += " ";
 				trackTitle += pTag->artist().toCString(true);
 
-				string pseudoContent(trackTitle);
-				pseudoContent += " ";
-				pseudoContent += pTag->album().toCString(true);
-				pseudoContent += " ";
-				pseudoContent += pTag->comment().toCString(true);
-				pseudoContent += " ";
-				pseudoContent += pTag->genre().toCString(true);
+				m_content.append(trackTitle.c_str(), trackTitle.length());
+				m_content += " ";
+				m_content += pTag->album().toCString(true);
+				m_content += " ";
+				m_content += pTag->comment().toCString(true);
+				m_content += " ";
+				m_content += pTag->genre().toCString(true);
 				snprintf(yearStr, 64, " %u", pTag->year());
-				pseudoContent += yearStr;
+				m_content += yearStr;
 
-				m_metaData["content"] = pseudoContent;
 				m_metaData["title"] = trackTitle;
 				m_metaData["ipath"] = "";
 				m_metaData["mimetype"] = "text/plain";
@@ -156,7 +158,6 @@ bool TagLibMusicFilter::next_document(void)
 			else
 			{
 				// This file doesn't have any tag
-				m_metaData["content"] = "";
 				string::size_type filePos = m_filePath.find_last_of("/");
 				if ((filePos != string::npos) &&
 					(m_filePath.length() - filePos > 1))

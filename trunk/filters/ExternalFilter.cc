@@ -119,6 +119,55 @@ static string shell_protect(const string &file_name)
 	return safefile;
 }
 
+static bool read_file(int fd, bool limit_output, ssize_t &totalSize, dstring &fileBuffer)
+{
+	struct stat fdStats;
+	ssize_t bytesRead = 0;
+	bool gotOutput = true;
+
+	if (fstat(fd, &fdStats) == 0)
+	{
+		if (fdStats.st_size > 0)
+		{
+			fileBuffer.reserve(fdStats.st_size);
+		}
+	}
+
+	do
+	{
+		if ((limit_output == true) && 
+			(totalSize >= MAX_OUTPUT_SIZE))
+		{
+#ifdef DEBUG
+			cout << "ExternalFilter::read_file: stopping at " << totalSize << endl;
+#endif
+			break;
+		}
+
+		char readBuffer[4096];
+		bytesRead = read(fd, readBuffer, 4096);
+		if (bytesRead > 0)
+		{
+			fileBuffer.append(readBuffer, bytesRead);
+			totalSize += bytesRead;
+		}
+		else if (bytesRead == -1)
+		{
+			// An error occured
+			if (errno != EINTR)
+			{
+				gotOutput = false;
+				break;
+			}
+
+			// Try again
+			bytesRead = 1;
+		}
+	} while (bytesRead > 0);
+
+	return gotOutput;
+}
+
 map<string, string> ExternalFilter::m_commandsByType;
 map<string, string> ExternalFilter::m_outputsByType;
 map<string, string> ExternalFilter::m_charsetsByType;
@@ -420,57 +469,8 @@ bool ExternalFilter::run_command(const string &command, bool limit_output)
 		return false;
 	}
 
-	struct stat outStats;
-	if (fstat(outFd, &outStats) == 0)
-	{
-		if (outStats.st_size == 0)
-		{
-			// Obviously something went haywire but be graceful
-			m_metaData["content"] = "";
-			m_metaData["size"] = "0";
-			gotOutput = true;
-		}
-		else
-		{
-			size_t outputSize = (size_t)outStats.st_size;
-
-			if (limit_output == true)
-			{
-				outputSize = min((size_t)outStats.st_size, (size_t)MAX_OUTPUT_SIZE);
-#ifdef DEBUG
-				cout << "ExternalFilter::run_command: stopping at " << outputSize << endl;
-#endif
-			}
-
-			// Grab the output
-			char *fileBuffer = new char[outputSize + 1];
-			if (fileBuffer != NULL)
-			{
-				ssize_t bytesRead = read(outFd, (void*)fileBuffer, outputSize);
-				if (bytesRead > 0)
-				{
-					fileBuffer[bytesRead] = '\0';
-
-					m_metaData["content"] = string(fileBuffer, (unsigned int)bytesRead);
-					stringstream numStream;
-					numStream << outputSize;
-					m_metaData["size"] = numStream.str();
-					gotOutput = true;
-				}
-#ifdef DEBUG
-				else cout << "ExternalFilter::run_command: couldn't read output" << endl;
-#endif
-
-				delete[] fileBuffer;
-			}
-#ifdef DEBUG
-			else cout << "ExternalFilter::run_command: couldn't allocate output" << endl;
-#endif
-		}
-	}
-#ifdef DEBUG
-	else cout << "ExternalFilter::run_command: couldn't stat output" << endl;
-#endif
+	ssize_t totalSize = 0;
+	gotOutput = read_file(outFd, limit_output, totalSize, m_content);
 
 	// Close and delete the temporary file
 	close(outFd);
@@ -481,8 +481,6 @@ bool ExternalFilter::run_command(const string &command, bool limit_output)
 		return false;
 	}
 #else
-	string fileBuffer;
-	ssize_t bytesRead = 0, totalSize = 0;
 	int status = 0;
 
 	// We want to be able to get the exit status of the child process
@@ -528,38 +526,8 @@ bool ExternalFilter::run_command(const string &command, bool limit_output)
 		return false;
 	}
 
-	gotOutput = true;
-	do
-	{
-		if ((limit_output == true) && 
-			(totalSize >= MAX_OUTPUT_SIZE))
-		{
-#ifdef DEBUG
-			cout << "ExternalFilter::run_command: stopping at " << totalSize << endl;
-#endif
-			break;
-		}
-
-		char readBuffer[4096];
-		bytesRead = read(fds[0], readBuffer, 4096);
-		if (bytesRead > 0)
-		{
-			fileBuffer.append(readBuffer, bytesRead);
-			totalSize += bytesRead;
-		}
-		else if (bytesRead == -1)
-		{
-			// An error occured
-			if (errno != EINTR)
-			{
-				gotOutput = false;
-				break;
-			}
-
-			// Try again
-			bytesRead = 1;
-		}
-	} while (bytesRead > 0);
+	ssize_t totalSize = 0;
+	gotOutput = read_file(fds[0], limit_output, totalSize, m_content);
 
 	// Close our side of the socket pair
 	close(fds[0]);
@@ -592,7 +560,6 @@ bool ExternalFilter::run_command(const string &command, bool limit_output)
 	}
 #endif
 
-	m_metaData["content"] = fileBuffer;
 	stringstream numStream;
 	numStream << totalSize;
 	m_metaData["size"] = numStream.str();

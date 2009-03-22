@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007-2009 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,7 +73,8 @@ bool TextFilter::set_document_string(const string &data_str)
 
 	rewind();
 
-	m_metaData["content"] = data_str;
+	m_content.reserve(data_str.length());
+	m_content.append(data_str.c_str(), data_str.length());
 	m_metaData["ipath"] = "";
 	m_metaData["mimetype"] = "text/plain";
 

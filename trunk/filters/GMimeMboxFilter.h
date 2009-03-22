@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007-2009 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -125,7 +125,7 @@ namespace Dijon
 
 	bool extractMessage(const std::string &subject);
 
-	char *extractPart(GMimeObject *mimeObject, std::string &contentType, ssize_t &partLen);
+	bool extractPart(GMimeObject *mimeObject, std::string &contentType, dstring &part);
 
     private:
 	/// GMimeMboxFilter objects cannot be copied.

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007 Fabrice Colin
+ *  Copyright 2007-2009 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -34,7 +34,6 @@ using namespace Dijon;
 
 Filter::Filter(const string &mime_type) :
 	m_mimeType(mime_type),
-	m_convertToUTF8Func(NULL),
 	m_deleteInputFile(false)
 {
 }
@@ -63,19 +62,20 @@ string Filter::get_mime_type(void) const
 	return m_mimeType;
 }
 
-bool Filter::set_utf8_converter(convert_to_utf8_func *func)
-{
-	m_convertToUTF8Func = func;
-}
-
-const map<string, string> &Filter::get_meta_data(void) const
+const map<string, std::string> &Filter::get_meta_data(void) const
 {
 	return m_metaData;
+}
+
+const dstring &Filter::get_content(void) const
+{
+	return m_content;
 }
 
 void Filter::rewind(void)
 {
 	m_metaData.clear();
+	m_content.clear();
 	deleteInputFile();
 	m_filePath.clear();
 	m_deleteInputFile = false;

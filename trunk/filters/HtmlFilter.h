@@ -126,7 +126,7 @@ namespace Dijon
 	class ParserState : public HtmlParser
 	{
 		public:
-			ParserState();
+			ParserState(dstring &text);
 			virtual ~ParserState();
 
 			virtual void process_text(const string &text);
@@ -146,7 +146,7 @@ namespace Dijon
 			unsigned int m_skip;
 			std::string m_charset;
 			std::string m_title;
-			std::string m_text;
+			dstring &m_text;
 			std::string m_abstract;
 			Link m_currentLink;
 			std::set<Link> m_links;

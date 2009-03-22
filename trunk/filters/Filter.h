@@ -35,6 +35,8 @@
 #endif
 #endif
 
+#include "Memory.h"
+
 namespace Dijon
 {
     class Filter;
@@ -100,10 +102,6 @@ namespace Dijon
 
 	// Initialization.
 
-	/** Sets the UTF-8 conversion funtion.
-	 */
-	bool set_utf8_converter(convert_to_utf8_func *func);
-
 	/** Sets a property, prior to calling set_document_XXX().
 	 * Returns false if the property is not supported.
 	 */
@@ -164,10 +162,9 @@ namespace Dijon
 
 	/** Returns a dictionary of metadata extracted from the current document.
 	 * Metadata fields may include one or more of the following :
-	 * content, title, ipath, mimetype, language, charset, author, creator,
+	 * title, ipath, mimetype, language, charset, author, creator,
 	 * publisher, modificationdate, creationdate, size
 	 * Special considerations apply :
-	 * - content may contain binary data, watch out !
 	 * - ipath is an internal path to the nested document that can be
 	 * later passed to skip_to_document(). It may be empty if the parent
 	 * document's type doesn't allow embedding, in which case the filter
@@ -179,13 +176,16 @@ namespace Dijon
 	 */
 	const std::map<std::string, std::string> &get_meta_data(void) const;
 
+	/// Returns content.
+	const dstring &get_content(void) const;
+
     protected:
 	/// The MIME type handled by the filter.
 	std::string m_mimeType;
-	/// The UTF8 conversion function.
-	convert_to_utf8_func *m_convertToUTF8Func;
 	/// Metadata dictionary.
 	std::map<std::string, std::string> m_metaData;
+	/// Content.
+	dstring m_content;
 	/// The name of the input file, if any.
 	std::string m_filePath;
 

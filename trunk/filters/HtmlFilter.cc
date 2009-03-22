@@ -208,7 +208,7 @@ bool Link::operator<(const Link &other) const
 	return m_index < other.m_index;
 }
 
-HtmlFilter::ParserState::ParserState() :
+HtmlFilter::ParserState::ParserState(dstring &text) :
 	m_isValid(true),
 	m_findAbstract(true),
 	m_textPos(0),
@@ -217,7 +217,8 @@ HtmlFilter::ParserState::ParserState() :
 	m_appendToTitle(false),
 	m_appendToText(false),
 	m_appendToLink(false),
-	m_skip(0)
+	m_skip(0),
+	m_text(text)
 {
 }
 
@@ -230,7 +231,7 @@ bool HtmlFilter::ParserState::get_links_text(unsigned int currentLinkIndex)
 	if ((m_links.empty() == true) ||
 		(m_currentLink.m_index == 0))
 	{
-		string abstract(m_text);
+		string abstract(m_text.c_str());
 
 		trimSpaces(abstract);
 
@@ -250,7 +251,7 @@ bool HtmlFilter::ParserState::get_links_text(unsigned int currentLinkIndex)
 			if (linkIter->m_endPos + 1 < m_textPos)
 			{
 				unsigned int abstractLen = m_textPos - linkIter->m_endPos - 1;
-				string abstract(m_text.substr(linkIter->m_endPos, abstractLen));
+				string abstract(m_text.substr(linkIter->m_endPos, abstractLen).c_str());
 
 				trimSpaces(abstract);
 
@@ -308,7 +309,7 @@ void HtmlFilter::ParserState::append_text(const string &text)
 	{
 		if (m_appendToText == true)
 		{
-			m_text += text;
+			m_text.append(text.c_str(), text.length());
 			m_textPos += text.length();
 		}
 
@@ -639,7 +640,6 @@ bool HtmlFilter::next_document(void)
 	{
 		m_metaData["charset"] = m_pParserState->m_charset;
 		m_metaData["title"] = m_pParserState->m_title;
-		m_metaData["content"] = m_pParserState->m_text;
 		m_metaData["abstract"] = m_pParserState->m_abstract;
 		m_metaData["ipath"] = "";
 		m_metaData["mimetype"] = "text/plain";
@@ -697,7 +697,8 @@ bool HtmlFilter::parse_html(const string &html)
 		return false;
 	}
 
-	m_pParserState = new ParserState();
+	m_content.clear();
+	m_pParserState = new ParserState(m_content);
 	if (m_skipText == true)
 	{
 		++m_pParserState->m_skip;
@@ -716,7 +717,7 @@ bool HtmlFilter::parse_html(const string &html)
 	map<string, string>::iterator keywordsIter = m_pParserState->m_metaTags.find("keywords");
 	if (keywordsIter != m_pParserState->m_metaTags.end())
 	{
-		m_pParserState->m_text += keywordsIter->second;
+		m_pParserState->m_text.append(keywordsIter->second.c_str(), keywordsIter->second.length());
 	}
 #ifdef DEBUG
 	cout << "HtmlFilter::parse_html: " << m_pParserState->m_text.size() << " bytes of text" << endl;

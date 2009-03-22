@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2008 Fabrice Colin
+ *  Copyright 2007-2009 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,19 +53,23 @@ DIJON_FILTER_EXPORT Filter *get_filter(const std::string &mime_type)
 }
 #endif
 
-static string replaceEntities(const string &str)
+static dstring replaceEntities(const string &str)
 {
 	// FIXME: replace all
 	static const char *escapedChars[] = { "quot", "amp", "lt", "gt", "nbsp", "eacute", "egrave", "agrave", "ccedil"};
 	static const char *unescapedChars[] = { "\"", "&", "<", ">", " ", "e", "e", "a", "c"};
 	static const unsigned int escapedCharsCount = 9;
-	string unescapedStr;
-	string::size_type startPos = 0;
+	dstring unescapedStr;
+	dstring::size_type startPos = 0;
+
+	unescapedStr.reserve(str.length());
 
 	string::size_type pos = str.find("&");
 	while (pos != string::npos)
 	{
-		unescapedStr += str.substr(startPos, pos - startPos);
+		string leftSubstring(str.substr(startPos, pos - startPos));
+
+		unescapedStr.append(leftSubstring.c_str(), leftSubstring.length());
 
 		startPos = pos + 1;
 		pos = str.find(";", startPos);
@@ -90,7 +94,7 @@ static string replaceEntities(const string &str)
 			{
 				// This couldn't be replaced, leave it as it is...
 				unescapedStr += "&";
-				unescapedStr += escapedChar;
+				unescapedStr.append(escapedChar.c_str(), escapedChar.length());
 				unescapedStr += ";";
 			}
 
@@ -102,7 +106,9 @@ static string replaceEntities(const string &str)
 	}
 	if (startPos < str.length())
 	{
-		unescapedStr  += str.substr(startPos);
+		string remainder(str.substr(startPos));
+
+		unescapedStr.append(remainder.c_str(), remainder.length());
 	}
 
 	return unescapedStr;
@@ -228,37 +234,37 @@ bool XmlFilter::parse_xml(const string &xml_doc)
 		return false;
 	}
 
-	string stripped(replaceEntities(xml_doc));
+	m_metaData.clear();
+	m_content = replaceEntities(xml_doc);
 
 	// Tag start
-	string::size_type startPos = stripped.find("<");
+	dstring::size_type startPos = m_content.find("<");
 	while (startPos != string::npos)
 	{
-		string::size_type endPos = stripped.find(">", startPos);
+		dstring::size_type endPos = m_content.find(">", startPos);
 		if (endPos == string::npos)
 		{
 			break;
 		}
 
-		stripped.replace(startPos, endPos - startPos + 1, " ");
+		m_content.replace(startPos, endPos - startPos + 1, " ");
 
 		// Next
-		startPos = stripped.find("<");
+		startPos = m_content.find("<");
 	}
 
 	// The input may contain partial tags, eg "a>...</a><b>...</b>...<c"
-	string::size_type pos = stripped.find(">");
+	dstring::size_type pos = m_content.find(">");
 	if (pos != string::npos)
 	{
-		stripped.erase(0, pos + 1);
+		m_content.erase(0, pos + 1);
 	}
-	pos = stripped.find("<");
+	pos = m_content.find("<");
 	if (pos != string::npos)
 	{
-		stripped.erase(pos);
+		m_content.erase(pos);
 	}
 
-	m_metaData["content"] = stripped;
 	m_metaData["ipath"] = "";
 	m_metaData["mimetype"] = "text/plain";
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2008 Fabrice Colin
+ *  Copyright 2008-2009 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -62,11 +62,17 @@ DIJON_FILTER_EXPORT Filter *get_filter(const std::string &mime_type)
 }
 #endif
 
-struct ExifMetaData
+class ExifMetaData
 {
-	string m_title;
-	string m_date;
-	string m_content;
+	public:
+		ExifMetaData(dstring &content) :
+			m_content(content)
+		{
+		}
+
+		string m_title;
+		string m_date;
+		dstring &m_content;
 };
 
 static void entryCallback(ExifEntry *pEntry, void *pData)
@@ -213,7 +219,7 @@ bool ExifImageFilter::next_document(void)
 		}
 		else
 		{
-			ExifMetaData *pMetaData = new ExifMetaData();
+			ExifMetaData *pMetaData = new ExifMetaData(m_content);
 
 			// Get it all
 			exif_data_foreach_content(pData, contentCallback, pMetaData);
@@ -223,7 +229,6 @@ bool ExifImageFilter::next_document(void)
 			{
 				m_metaData["date"] = pMetaData->m_date;
 			}
-			m_metaData["content"] = pMetaData->m_content;
 
 			delete pMetaData;
 			exif_data_unref(pData);
