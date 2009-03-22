@@ -190,13 +190,13 @@ This item is optional, and defaults to text/plain.
 <filter>
   <mimetype>application/vnd.openxmlformats-officedocument.presentationml.presentation</mimetype>
   <command>unzip</command>
-  <arguments>-p %s word/document.xml</arguments>
+  <arguments>-p %s ppt/slides/slide*.xml</arguments>
   <output>application/xml</output>
 </filter>
 <filter>
   <mimetype>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</mimetype>
   <command>unzip</command>
-  <arguments>-p %s word/document.xml</arguments>
+  <arguments>-p %s xl/sharedStrings.xml</arguments>
   <output>application/xml</output>
 </filter>
 <filter>
