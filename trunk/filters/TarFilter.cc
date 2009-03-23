@@ -237,6 +237,7 @@ void TarFilter::rewind(void)
 	if (m_pHandle != NULL)
 	{
 		tar_close(m_pHandle);
+		m_pHandle = NULL;
 	}
 
 	m_parseDocument = false;
