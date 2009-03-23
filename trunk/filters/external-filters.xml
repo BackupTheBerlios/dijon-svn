@@ -263,23 +263,6 @@ This item is optional, and defaults to text/plain.
   <arguments>-c %s</arguments>
 </filter>
 <filter>
-  <mimetype>application/x-compressed-tar</mimetype>
-  <command>gunzip</command>
-  <arguments>-c %s</arguments>
-  <output>application/x-tar</output>
-</filter>
-<filter>
-  <mimetype>application/x-bzip-compressed-tar</mimetype>
-  <command>bunzip2</command>
-  <arguments>-c %s</arguments>
-  <output>application/x-tar</output>
-</filter>
-<filter>
-  <mimetype>application/zip</mimetype>
-  <command>zipinfo</command>
-  <arguments>-1 %s</arguments>
-</filter>
-<filter>
   <mimetype>application/x-gzip</mimetype>
   <command>gunzip</command>
   <arguments>-c %s</arguments>
