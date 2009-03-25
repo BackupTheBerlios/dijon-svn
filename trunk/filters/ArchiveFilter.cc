@@ -244,7 +244,7 @@ bool ArchiveFilter::next_document(const std::string &ipath)
 	m_content.clear();
 	m_metaData.clear();
 	m_metaData["title"] = pFileName;
-	m_metaData["ipath"] = pFileName;
+	m_metaData["ipath"] = string("f=") + pFileName;
 	sizeStream << size;
 	m_metaData["size"] = sizeStream.str();
 #ifdef DEBUG
@@ -296,7 +296,14 @@ bool ArchiveFilter::next_document(const std::string &ipath)
 
 bool ArchiveFilter::skip_to_document(const string &ipath)
 {
-	return next_document(ipath);
+	string::size_type fPos = ipath.find("f=");
+
+	if (fPos != 0)
+	{
+		return false;
+	}
+
+	return next_document(ipath.substr(2));
 }
 
 string ArchiveFilter::get_error(void) const
