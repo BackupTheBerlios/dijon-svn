@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <iostream>
 #include <libexif/exif-data.h>
@@ -129,7 +130,7 @@ static void entryCallback(ExifEntry *pEntry, void *pData)
 			break;
 		default:
 			pMetaData->m_content += " ";
-			pMetaData->m_content += value;
+			pMetaData->m_content.append(value, strlen(value));
 			break;
 	}
 #ifdef DEBUG
