@@ -16,12 +16,16 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef HAVE_MMAP
+#include <sys/mman.h>
+#endif
 #include <time.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -31,7 +35,6 @@
 
 #include <gmime/gmime.h>
 
-#include "config.h"
 #include "GMimeMboxFilter.h"
 
 using std::cout;
@@ -56,7 +59,8 @@ DIJON_FILTER_EXPORT bool check_filter_data_input(int data_input)
 {
 	Filter::DataInput input = (Filter::DataInput)data_input;
 
-	if (input == Filter::DOCUMENT_FILE_NAME)
+	if ((input == Filter::DOCUMENT_DATA) ||
+		(input == Filter::DOCUMENT_FILE_NAME))
 	{
 		return true;
 	}
@@ -122,6 +126,8 @@ static bool read_stream(GMimeStream *memStream, dstring &fileBuffer)
 GMimeMboxFilter::GMimeMboxFilter(const string &mime_type) :
 	Filter(mime_type),
 	m_returnHeaders(false),
+	m_pData(NULL),
+	m_dataLength(0),
 	m_fd(-1),
 	m_pGMimeMboxStream(NULL),
 	m_pParser(NULL),
@@ -140,7 +146,8 @@ GMimeMboxFilter::~GMimeMboxFilter()
 
 bool GMimeMboxFilter::is_data_input_ok(DataInput input) const
 {
-	if (input == DOCUMENT_FILE_NAME)
+	if ((input == DOCUMENT_DATA) ||
+		(input == DOCUMENT_FILE_NAME))
 	{
 		return true;
 	}
@@ -175,7 +182,25 @@ bool GMimeMboxFilter::set_property(Properties prop_name, const string &prop_valu
 
 bool GMimeMboxFilter::set_document_data(const char *data_ptr, unsigned int data_length)
 {
-	return false;
+	// Close/free whatever was opened/allocated on a previous call to set_document()
+	finalize(true);
+	m_partsCount = m_partNum = -1;
+	m_messageStart = 0;
+	m_messageDate.clear();
+	m_partCharset.clear();
+	m_foundDocument = false;
+
+	m_pData = data_ptr;
+	m_dataLength = data_length;
+
+	// Assume there are documents if initialization is successful
+	// but don't actually retrieve anything, until next or skip is called
+	if (initializeData() == true)
+	{
+		m_foundDocument = initialize();
+	}
+
+	return m_foundDocument;
 }
 
 bool GMimeMboxFilter::set_document_string(const string &data_str)
@@ -197,7 +222,10 @@ bool GMimeMboxFilter::set_document_file(const string &file_path, bool unlink_whe
 
 	// Assume there are documents if initialization is successful
 	// but don't actually retrieve anything, until next or skip is called
-	m_foundDocument = initialize();
+	if (initializeFile() == true)
+	{
+		m_foundDocument = initialize();
+	}
 
 	return m_foundDocument;
 }
@@ -251,10 +279,14 @@ bool GMimeMboxFilter::skip_to_document(const string &ipath)
 	m_partCharset.clear();
 	m_foundDocument = false;
 
-	if (initialize() == true)
+	if (((m_filePath.empty() == false) && (initializeFile() == true)) ||
+		((m_dataLength > 0) && (initializeData() == true)))
 	{
-		// Extract the first message at the given offset
-		m_foundDocument = extractMessage("");
+		if (initialize() == true)
+		{
+			// Extract the first message at the given offset
+			m_foundDocument = extractMessage("");
+		}
 	}
 
 	return m_foundDocument;
@@ -265,7 +297,42 @@ string GMimeMboxFilter::get_error(void) const
 	return "";
 }
 
-bool GMimeMboxFilter::initialize(void)
+bool GMimeMboxFilter::initializeData(void)
+{
+	// Create a stream
+	m_pGMimeMboxStream = g_mime_stream_mem_new_with_buffer(m_pData, m_dataLength);
+	if (m_pGMimeMboxStream == NULL)
+	{
+		return false;
+	}
+
+	if (m_messageStart > 0)
+	{
+		struct stat fileStat;
+
+		if ((fstat(m_fd, &fileStat) == 0) &&
+			(!S_ISREG(fileStat.st_mode)))
+		{
+			// This is not a file !
+			return false;
+		}
+
+		if (m_messageStart > fileStat.st_size)
+		{
+			// This offset doesn't make sense !
+			m_messageStart = 0;
+		}
+
+		g_mime_stream_set_bounds(m_pGMimeMboxStream, m_messageStart, fileStat.st_size);
+#ifdef DEBUG
+		cout << "GMimeMboxFilter::initializeData: stream starts at offset " << m_messageStart << endl;
+#endif
+	}
+
+	return true;
+}
+
+bool GMimeMboxFilter::initializeFile(void)
 {
 #ifndef O_NOATIME
 	int openFlags = O_RDONLY;
@@ -286,7 +353,7 @@ bool GMimeMboxFilter::initialize(void)
 	if (m_fd < 0)
 	{
 #ifdef DEBUG
-		cout << "GMimeMboxFilter::initialize: couldn't open " << m_filePath << endl;
+		cout << "GMimeMboxFilter::initializeFile: couldn't open " << m_filePath << endl;
 #endif
 		return false;
 	}
@@ -309,20 +376,37 @@ bool GMimeMboxFilter::initialize(void)
 			m_messageStart = 0;
 		}
 
+#ifdef HAVE_MMAP
+		m_pGMimeMboxStream = g_mime_stream_mmap_new_with_bounds(m_fd, PROT_READ, MAP_PRIVATE, m_messageStart, fileStat.st_size);
+#else
 		m_pGMimeMboxStream = g_mime_stream_fs_new_with_bounds(m_fd, m_messageStart, fileStat.st_size);
+#endif
 #ifdef DEBUG
-		cout << "GMimeMboxFilter::initialize: stream starts at offset " << m_messageStart << endl;
+		cout << "GMimeMboxFilter::initializeFile: stream starts at offset " << m_messageStart << endl;
 #endif
 	}
 	else
 	{
+#ifdef HAVE_MMAP
+		m_pGMimeMboxStream = g_mime_stream_mmap_new(m_fd, PROT_READ, MAP_PRIVATE);
+#else
 		m_pGMimeMboxStream = g_mime_stream_fs_new(m_fd);
+#endif
+	}
+
+	return true;
+}
+
+bool GMimeMboxFilter::initialize(void)
+{
+	if (m_pGMimeMboxStream == NULL)
+	{
+		return false;
 	}
 
 	// And a parser
 	m_pParser = g_mime_parser_new();
-	if ((m_pGMimeMboxStream != NULL) &&
-		(m_pParser != NULL))
+	if (m_pParser != NULL)
 	{
 		g_mime_parser_init_with_stream(m_pParser, m_pGMimeMboxStream);
 		g_mime_parser_set_respect_content_length(m_pParser, TRUE);
@@ -355,11 +439,13 @@ void GMimeMboxFilter::finalize(bool fullReset)
 		g_object_unref(G_OBJECT(m_pParser));
 		m_pParser = NULL;
 	}
-	else if (m_pGMimeMboxStream != NULL)
+	if (m_pGMimeMboxStream != NULL)
 	{
 		g_object_unref(G_OBJECT(m_pGMimeMboxStream));
 		m_pGMimeMboxStream = NULL;
 	}
+	m_pData = NULL;
+	m_dataLength = 0;
 	if (m_fd >= 0)
 	{
 		close(m_fd);
@@ -664,26 +750,21 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 				m_content.clear();
 				if (extractPart(pMimePart, contentType, m_content) == true)
 				{
-					string location("mailbox://");
 					char posStr[128];
-
-					// FIXME: use the same scheme as Mozilla
-					location += m_filePath;
 
 					// New document
 					m_metaData.clear();
 					m_metaData["title"] = msgSubject;
-					m_metaData["uri"] = location;
 					m_metaData["mimetype"] = contentType;
 					m_metaData["date"] = m_messageDate;
 					m_metaData["charset"] = m_partCharset;
 					snprintf(posStr, 128, "%u", m_content.length());
 					m_metaData["size"] = posStr;
+					// FIXME: use the same scheme as Mozilla
 					snprintf(posStr, 128, "o=%u&p=%d", m_messageStart, max(m_partNum - 1, 0));
 					m_metaData["ipath"] = posStr;
 #ifdef DEBUG
-					cout << "GMimeMboxFilter::extractMessage: message location is " << location
-						<< "?" << posStr << endl;
+					cout << "GMimeMboxFilter::extractMessage: message location is " << posStr << endl; 
 #endif
 
 #ifndef GMIME_ENABLE_RFC2047_WORKAROUNDS

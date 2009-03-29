@@ -108,6 +108,8 @@ namespace Dijon
     protected:
 	std::string m_defaultCharset;
 	bool m_returnHeaders;
+	const char *m_pData;
+	unsigned int m_dataLength;
 	int m_fd;
 	GMimeStream *m_pGMimeMboxStream;
 	GMimeParser *m_pParser;
@@ -118,6 +120,10 @@ namespace Dijon
 	std::string m_messageDate;
 	std::string m_partCharset;
 	bool m_foundDocument;
+
+	bool initializeData(void);
+
+	bool initializeFile(void);
 
 	bool initialize(void);
 
