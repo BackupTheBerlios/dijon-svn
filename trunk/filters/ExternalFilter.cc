@@ -301,9 +301,6 @@ void ExternalFilter::initialize(const std::string &config_file, set<std::string>
 
 	types.clear();
 
-	// Initialize the library and check for potential ABI mismatches
-	LIBXML_TEST_VERSION
-
 	// Parse the file and get the document
 #if LIBXML_VERSION < 20600
 	pDoc = xmlParseFile(config_file.c_str());
@@ -400,9 +397,6 @@ void ExternalFilter::initialize(const std::string &config_file, set<std::string>
 
 	// Free the document
 	xmlFreeDoc(pDoc);
-
-	// Cleanup
-	xmlCleanupParser();
 }
 
 void ExternalFilter::rewind(void)
