@@ -96,7 +96,7 @@ DIJON_FILTER_SHUTDOWN void shutdown_gmime(void)
 static bool read_stream(GMimeStream *memStream, dstring &fileBuffer)
 {
 	char readBuffer[4096];
-	ssize_t bytesRead = 0;
+	ssize_t totalSize = 0, bytesRead = 0;
 	bool gotOutput = true;
 
 	do
@@ -105,6 +105,7 @@ static bool read_stream(GMimeStream *memStream, dstring &fileBuffer)
 		if (bytesRead > 0)
 		{
 			fileBuffer.append(readBuffer, bytesRead);
+			totalSize += bytesRead;
 		}
 		else if (bytesRead == -1)
 		{
@@ -119,6 +120,10 @@ static bool read_stream(GMimeStream *memStream, dstring &fileBuffer)
 			bytesRead = 1;
 		}
 	} while (bytesRead > 0);
+#ifdef DEBUG
+	cout << "GMimeMboxFilter::extractPart: read " << totalSize
+		<< "/" << fileBuffer.size() << " bytes" << endl;
+#endif
 
 	return gotOutput;
 }
