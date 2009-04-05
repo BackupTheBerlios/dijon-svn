@@ -234,11 +234,10 @@ void TarFilter::rewind(void)
 {
 	Filter::rewind();
 
+	m_parseDocument = false;
 	if (m_pHandle != NULL)
 	{
 		tar_close(m_pHandle);
 		m_pHandle = NULL;
 	}
-
-	m_parseDocument = false;
 }

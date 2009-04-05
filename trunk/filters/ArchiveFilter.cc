@@ -48,6 +48,7 @@ DIJON_FILTER_EXPORT bool get_filter_types(std::set<std::string> &mime_types)
 	mime_types.insert("application/x-sv4cpio");
 	mime_types.insert("application/x-cd-image");
 	mime_types.insert("application/x-iso9660-image");
+	mime_types.insert("application/x-tarz");
 	mime_types.insert("application/zip");
 
 	return true;
@@ -58,7 +59,8 @@ DIJON_FILTER_EXPORT bool check_filter_data_input(int data_input)
 	Filter::DataInput input = (Filter::DataInput)data_input;
 
 	if ((input == Filter::DOCUMENT_DATA) ||
-		(input == Filter::DOCUMENT_STRING))
+		(input == Filter::DOCUMENT_STRING) ||
+		(input == Filter::DOCUMENT_FILE_NAME))
 	{
 		return true;
 	}
@@ -75,15 +77,15 @@ DIJON_FILTER_EXPORT Filter *get_filter(const std::string &mime_type)
 ArchiveFilter::ArchiveFilter(const string &mime_type) :
 	Filter(mime_type),
 	m_parseDocument(false),
+	m_isBig(false),
+	m_pMem(NULL),
 	m_fd(-1),
 	m_pHandle(NULL)
 {
-	m_pHandle = archive_read_new();
-	if (m_pHandle != NULL)
+	if ((mime_type == "application/x-cd-image") ||
+		(mime_type == "application/x-iso9660-image"))
 	{
-		// Go for the full monty
-		archive_read_support_compression_all(m_pHandle);
-		archive_read_support_format_all(m_pHandle);
+		m_isBig = true;
 	}
 }
 
@@ -96,6 +98,10 @@ bool ArchiveFilter::is_data_input_ok(DataInput input) const
 {
 	if ((input == DOCUMENT_DATA) ||
 		(input == DOCUMENT_STRING))
+	{
+		return !m_isBig;
+	} 
+	else if (input == DOCUMENT_FILE_NAME)
 	{
 		return true;
 	}
@@ -110,15 +116,38 @@ bool ArchiveFilter::set_property(Properties prop_name, const string &prop_value)
 
 bool ArchiveFilter::set_document_data(const char *data_ptr, unsigned int data_length)
 {
-	char *pMem = const_cast<char*>(data_ptr);
+	initialize();
+	if ((m_pHandle == NULL) ||
+		(m_isBig == true))
+	{
+		return false;
+	}
 
-	if ((m_pHandle != NULL) &&
-		(archive_read_open_memory(m_pHandle, static_cast<void*>(pMem), (size_t)data_length) == ARCHIVE_OK))
+	// archive_read_open_memory() expects a non-const pointer
+	// so we'd better make a copy
+	m_pMem = (char *)malloc(sizeof(char) * (data_length + 1));
+	if (m_pMem == NULL)
+	{
+		return false;
+	}
+
+	void *pVoidMem = static_cast<void*>(m_pMem);
+	memcpy(pVoidMem, static_cast<const void*>(data_ptr), data_length);
+	m_pMem[data_length] = '\0';
+
+	if (archive_read_open_memory(m_pHandle, pVoidMem, (size_t)data_length) == ARCHIVE_OK)
 	{
 		m_parseDocument = true;
+#ifdef DEBUG
+		cout << "ArchiveFilter::set_document_data: " << m_mimeType 
+			<< ", format " << archive_format(m_pHandle) << endl;
+#endif
 
 		return true;
 	}
+
+	free(m_pMem);
+	m_pMem = NULL;
 
 	return false;
 }
@@ -130,14 +159,19 @@ bool ArchiveFilter::set_document_string(const string &data_str)
 
 bool ArchiveFilter::set_document_file(const string &file_path, bool unlink_when_done)
 {
-	if ((m_pHandle != NULL) &&
-		(Filter::set_document_file(file_path, unlink_when_done) == true))
+	if (Filter::set_document_file(file_path, unlink_when_done) == true)
 	{
 #ifndef O_NOATIME
 		int openFlags = O_RDONLY;
 #else
 		int openFlags = O_RDONLY|O_NOATIME;
 #endif
+
+		initialize();
+		if (m_pHandle == NULL)
+		{
+			return false;
+		}
 
 		// Open the archive 
 		m_fd = open(file_path.c_str(), openFlags);
@@ -152,15 +186,18 @@ bool ArchiveFilter::set_document_file(const string &file_path, bool unlink_when_
 		if (m_fd < 0)
 		{
 #ifdef DEBUG
-			cout << "ArchiveFilter::initialize: couldn't open " << file_path << endl;
+			cout << "ArchiveFilter::set_document_file: couldn't open " << file_path << endl;
 #endif
 			return false;
 		}
 
-		// FIXME: this segfaults in _archive_check_magic()
 		if (archive_read_open_fd(m_pHandle, m_fd, ARCHIVE_DEFAULT_BYTES_PER_BLOCK) == ARCHIVE_OK)
 		{
 			m_parseDocument = true;
+#ifdef DEBUG
+			cout << "ArchiveFilter::set_document_file: " << file_path
+				<< ", " << m_mimeType << ", format " << archive_format(m_pHandle) << endl;
+#endif
 
 			return true;
 		}
@@ -187,13 +224,66 @@ bool ArchiveFilter::next_document(void)
 	return next_document("");
 }
 
+void ArchiveFilter::initialize(void)
+{
+	m_pHandle = archive_read_new();
+	if (m_pHandle != NULL)
+	{
+		// Enable what we need for the given type
+		if (m_mimeType == "application/x-tar")
+		{
+			archive_read_support_format_tar(m_pHandle);
+			archive_read_support_format_gnutar(m_pHandle);
+		}
+		else if ((m_mimeType == "application/x-bcpio") ||
+			(m_mimeType == "application/x-cpio") ||
+			(m_mimeType == "application/x-sv4cpio"))
+		{
+			archive_read_support_format_cpio(m_pHandle);
+		}
+		else if (m_mimeType == "application/x-bzip-compressed-tar")
+		{
+			archive_read_support_compression_bzip2(m_pHandle);
+			archive_read_support_format_tar(m_pHandle);
+			archive_read_support_format_gnutar(m_pHandle);
+		}
+		else if (m_mimeType == "application/x-compressed-tar")
+		{
+			archive_read_support_compression_gzip(m_pHandle);
+			archive_read_support_format_tar(m_pHandle);
+			archive_read_support_format_gnutar(m_pHandle);
+		}
+		else if (m_mimeType == "application/x-cpio-compressed")
+		{
+			archive_read_support_compression_gzip(m_pHandle);
+			archive_read_support_format_cpio(m_pHandle);
+		}
+		else if ((m_mimeType == "application/x-cd-image") ||
+			(m_mimeType == "application/x-iso9660-image"))
+		{
+			archive_read_support_format_iso9660(m_pHandle);
+		}
+		else if (m_mimeType == "application/x-tarz")
+		{
+			archive_read_support_compression_compress(m_pHandle);
+			archive_read_support_format_tar(m_pHandle);
+			archive_read_support_format_gnutar(m_pHandle);
+		}
+		else if (m_mimeType == "application/zip")
+		{
+			archive_read_support_format_zip(m_pHandle);
+		}
+	}
+}
+
 bool ArchiveFilter::next_document(const std::string &ipath)
 {
 	struct archive_entry *pEntry = NULL;
 	const char *pFileName = NULL;
 	bool foundFile = false;
 
-	if (m_parseDocument == false)
+	if ((m_parseDocument == false) ||
+		(m_pHandle == NULL))
 	{
 		return false;
 	}
@@ -248,13 +338,11 @@ bool ArchiveFilter::next_document(const std::string &ipath)
 	sizeStream << size;
 	m_metaData["size"] = sizeStream.str();
 #ifdef DEBUG
-	cout << "ArchiveFilter::next_document: found " << pFileName << ", size " << size << endl;
+	cout << "ArchiveFilter::next_document: found " << pFileName << ", size " << size << " bytes" << endl;
 #endif
 
 	if (S_ISDIR(pEntryStats->st_mode))
 	{
-		archive_entry_set_perm(pEntry, 0755);
-
 		m_metaData["mimetype"] = "x-directory/normal";
 	}
 	else if (S_ISLNK(pEntryStats->st_mode))
@@ -263,32 +351,49 @@ bool ArchiveFilter::next_document(const std::string &ipath)
 	}
 	else if (S_ISREG(pEntryStats->st_mode))
 	{
-		char pBuffer[ARCHIVE_DEFAULT_BYTES_PER_BLOCK];
-		size_t blockNum = size;
-		bool readFile = true;
-
-		archive_entry_set_perm(pEntry, 0644);
-
 		m_content.reserve(size);
-		while (blockNum > 0)
-		{
-			int readSize = archive_read_data(m_pHandle, pBuffer, ARCHIVE_DEFAULT_BYTES_PER_BLOCK);
-#ifdef DEBUG
-			cout << "ArchiveFilter::next_document: read " << readSize << endl;
-#endif
-			if (readSize <= 0)
-			{
-				readFile = false;
-				break;
-			}
 
-			m_content.append(pBuffer, readSize);
-			blockNum -= readSize;
+#if 1
+		const void *pBuffer = NULL;
+		size_t readSize = 0, totalSize = 0;
+		off_t offset = 0;
+
+		while (archive_read_data_block(m_pHandle,
+			&pBuffer, &readSize, &offset) == ARCHIVE_OK)
+		{
+			totalSize += readSize;
+#ifdef DEBUG
+			cout << "ArchiveFilter::next_document: read " << readSize << " bytes" << endl;
+#endif
+			m_content.append(static_cast<const char*>(pBuffer), readSize);
 		}
+#ifdef DEBUG
+		cout << "ArchiveFilter::next_document: read " << totalSize
+			<< "/" << m_content.size() << " bytes" << endl;
+#endif
+#else
+		char *pBuffer = (char *)malloc(sizeof(char) * (size + 1));
+
+		if (pBuffer != NULL)
+		{
+			if (archive_read_data_into_buffer(m_pHandle, (void*)pBuffer, size) == ARCHIVE_OK)
+			{
+				m_content.append(pBuffer, size);
+			}
+#ifdef DEBUG
+			else
+			{
+				cout << "ArchiveFilter::next_document: failed to read " << size << " bytes" << endl;
+			}
+#endif
+
+			free(pBuffer);
+		}
+#endif
 
 		m_metaData["mimetype"] = "SCAN";
 
-		return readFile;
+		return true;
 	}
 
 	return true;
@@ -315,16 +420,21 @@ void ArchiveFilter::rewind(void)
 {
 	Filter::rewind();
 
+	m_parseDocument = m_isBig = false;
 	if (m_pHandle != NULL)
 	{
+		archive_read_close(m_pHandle);
 		archive_read_finish(m_pHandle);
 		m_pHandle = NULL;
+	}
+	if (m_pMem != NULL)
+	{
+		free(m_pMem);
+		m_pMem = NULL;
 	}
 	if (m_fd >= 0)
 	{
 		close(m_fd);
 		m_fd = -1;
 	}
-
-	m_parseDocument = false;
 }

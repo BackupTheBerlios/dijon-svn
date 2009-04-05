@@ -103,10 +103,14 @@ namespace Dijon
 
     protected:
 	bool m_parseDocument;
+	bool m_isBig;
+	char *m_pMem;
 	int m_fd;
 	struct archive *m_pHandle;
 
 	virtual void rewind(void);
+
+	void initialize(void);
 
 	bool next_document(const std::string &ipath);
 
