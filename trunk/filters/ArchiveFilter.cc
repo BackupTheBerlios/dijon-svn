@@ -40,16 +40,11 @@ DIJON_FILTER_EXPORT bool get_filter_types(std::set<std::string> &mime_types)
 {
 	mime_types.clear();
 	mime_types.insert("application/x-tar");
-	mime_types.insert("application/x-bcpio");
 	mime_types.insert("application/x-bzip-compressed-tar");
 	mime_types.insert("application/x-compressed-tar");
-	mime_types.insert("application/x-cpio-compressed");
-	mime_types.insert("application/x-cpio");
-	mime_types.insert("application/x-sv4cpio");
 	mime_types.insert("application/x-cd-image");
 	mime_types.insert("application/x-iso9660-image");
 	mime_types.insert("application/x-tarz");
-	mime_types.insert("application/zip");
 
 	return true;
 }
@@ -235,12 +230,6 @@ void ArchiveFilter::initialize(void)
 			archive_read_support_format_tar(m_pHandle);
 			archive_read_support_format_gnutar(m_pHandle);
 		}
-		else if ((m_mimeType == "application/x-bcpio") ||
-			(m_mimeType == "application/x-cpio") ||
-			(m_mimeType == "application/x-sv4cpio"))
-		{
-			archive_read_support_format_cpio(m_pHandle);
-		}
 		else if (m_mimeType == "application/x-bzip-compressed-tar")
 		{
 			archive_read_support_compression_bzip2(m_pHandle);
@@ -253,11 +242,6 @@ void ArchiveFilter::initialize(void)
 			archive_read_support_format_tar(m_pHandle);
 			archive_read_support_format_gnutar(m_pHandle);
 		}
-		else if (m_mimeType == "application/x-cpio-compressed")
-		{
-			archive_read_support_compression_gzip(m_pHandle);
-			archive_read_support_format_cpio(m_pHandle);
-		}
 		else if ((m_mimeType == "application/x-cd-image") ||
 			(m_mimeType == "application/x-iso9660-image"))
 		{
@@ -268,10 +252,6 @@ void ArchiveFilter::initialize(void)
 			archive_read_support_compression_compress(m_pHandle);
 			archive_read_support_format_tar(m_pHandle);
 			archive_read_support_format_gnutar(m_pHandle);
-		}
-		else if (m_mimeType == "application/zip")
-		{
-			archive_read_support_format_zip(m_pHandle);
 		}
 	}
 }
