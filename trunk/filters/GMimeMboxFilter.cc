@@ -285,7 +285,7 @@ bool GMimeMboxFilter::skip_to_document(const string &ipath)
 	m_foundDocument = false;
 
 	if (((m_filePath.empty() == false) && (initializeFile() == true)) ||
-		((m_dataLength > 0) && (initializeData() == true)))
+		(initializeData() == true))
 	{
 		if (initialize() == true)
 		{
@@ -449,16 +449,19 @@ void GMimeMboxFilter::finalize(bool fullReset)
 		g_object_unref(G_OBJECT(m_pGMimeMboxStream));
 		m_pGMimeMboxStream = NULL;
 	}
-	m_pData = NULL;
-	m_dataLength = 0;
+
+	// initializeFile() will always reopen the file
 	if (m_fd >= 0)
 	{
 		close(m_fd);
 		m_fd = -1;
 	}
-
 	if (fullReset == true)
 	{
+		// ...but those data fields will only be reinit'ed on a full reset
+		m_pData = NULL;
+		m_dataLength = 0;
+
 		rewind();
 	}
 }
