@@ -1,6 +1,6 @@
 /*
- *  Copyright 2007,2008 林永忠 Yung-Chung Lin
- *  Copyright 2008 Fabrice Colin
+ *  Copyright 2007-2008 林永忠 Yung-Chung Lin
+ *  Copyright 2008-2009 Fabrice Colin
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -62,6 +62,10 @@ namespace Dijon
 
 			unsigned int get_max_token_count(void) const;
 
+			void set_max_text_size(unsigned int max_text_size);
+
+			unsigned int get_max_text_size(void) const;
+
 			void tokenize(const std::string &str,
 				std::vector<std::string> &token_list);
 
@@ -85,6 +89,7 @@ namespace Dijon
 		protected:
 			unsigned int m_nGramSize;
 			unsigned int m_maxTokenCount;
+			unsigned int m_maxTextSize;
 
 	};
 };

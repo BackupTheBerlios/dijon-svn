@@ -1,6 +1,6 @@
 /*
- *  Copyright 2007,2008 林永忠 Yung-Chung Lin
- *  Copyright 2008 Fabrice Colin
+ *  Copyright 2007-2008 林永忠 Yung-Chung Lin
+ *  Copyright 2008-2009 Fabrice Colin
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -198,7 +198,8 @@ class VectorTokensHandler : public CJKVTokenizer::TokensHandler
 
 CJKVTokenizer::CJKVTokenizer() :
 	m_nGramSize(2),
-	m_maxTokenCount(0)
+	m_maxTokenCount(0),
+	m_maxTextSize(5242880)
 {
 	unicode_init();
 }
@@ -225,6 +226,16 @@ void CJKVTokenizer::set_max_token_count(unsigned int max_token_count)
 unsigned int CJKVTokenizer::get_max_token_count(void) const
 {
 	return m_maxTokenCount;
+}
+
+void CJKVTokenizer::set_max_text_size(unsigned int max_text_size)
+{
+	m_maxTextSize = max_text_size;
+}
+
+unsigned int CJKVTokenizer::get_max_text_size(void) const
+{
+	return m_maxTextSize;
 }
 
 void CJKVTokenizer::tokenize(const string &str, vector<string> &token_list)
@@ -334,17 +345,23 @@ void CJKVTokenizer::tokenize(const string &str, TokensHandler &handler,
 void CJKVTokenizer::split(const string &str, vector<string> &token_list)
 {
 	unicode_char_t uchar;
-	char *str_ptr = (char*) str.c_str();
+	const char *str_ptr = str.c_str();
 	int str_utf8_len = unicode_strlen(str_ptr, str.length());
 	unsigned char p[sizeof(unicode_char_t) + 1];
 
 	for (int i = 0; i < str_utf8_len; i++)
 	{
-		str_ptr = unicode_get_utf8((const char*)str_ptr, &uchar);
+		str_ptr = unicode_get_utf8(str_ptr, &uchar);
 		if (str_ptr == NULL)
 		{
 			break;
 		}
+
+		if (i >= m_maxTextSize)
+		{
+			break;
+		}
+
 		token_list.push_back((const char*)_unicode_to_char(uchar, p));
 	}
 }
@@ -352,16 +369,22 @@ void CJKVTokenizer::split(const string &str, vector<string> &token_list)
 void CJKVTokenizer::split(const string &str, vector<unicode_char_t> &token_list)
 {
 	unicode_char_t uchar;
-	char *str_ptr = (char*) str.c_str();
+	const char *str_ptr = str.c_str();
 	int str_utf8_len = unicode_strlen(str_ptr, str.length());
 
 	for (int i = 0; i < str_utf8_len; i++)
 	{
-		str_ptr = unicode_get_utf8((const char*)str_ptr, &uchar);
+		str_ptr = unicode_get_utf8(str_ptr, &uchar);
 		if (str_ptr == NULL)
 		{
 			break;
 		}
+
+		if (i >= m_maxTextSize)
+		{
+			break;
+		}
+
 		token_list.push_back(uchar);
 	}
 }
