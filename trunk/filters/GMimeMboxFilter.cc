@@ -27,6 +27,7 @@
 #include <sys/mman.h>
 #endif
 #include <time.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <iostream>
@@ -339,20 +340,23 @@ bool GMimeMboxFilter::initializeData(void)
 
 bool GMimeMboxFilter::initializeFile(void)
 {
-#ifndef O_NOATIME
 	int openFlags = O_RDONLY;
-#else
-	int openFlags = O_RDONLY|O_NOATIME;
+#ifdef O_CLOEXEC
+	openFlags |= O_CLOEXEC;
 #endif
 
 	// Open the mbox file
+#ifdef O_NOATIME
+	m_fd = open(m_filePath.c_str(), openFlags|O_NOATIME);
+#else
 	m_fd = open(m_filePath.c_str(), openFlags);
+#endif
 #ifdef O_NOATIME
 	if ((m_fd < 0) &&
 		(errno == EPERM))
 	{
 		// Try again
-		m_fd = open(m_filePath.c_str(), O_RDONLY);
+		m_fd = open(m_filePath.c_str(), openFlags);
 	}
 #endif
 	if (m_fd < 0)
@@ -362,6 +366,10 @@ bool GMimeMboxFilter::initializeFile(void)
 #endif
 		return false;
 	}
+#ifndef O_CLOEXEC
+	int fdFlags = fcntl(m_fd, F_GETFD);
+	fcntl(m_fd, F_SETFD, fdFlags|FD_CLOEXEC);
+#endif
 
 	// Create a stream
 	if (m_messageStart > 0)

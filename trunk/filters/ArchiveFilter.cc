@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <archive_entry.h>
 #include <iostream>
@@ -39,11 +40,13 @@ using namespace Dijon;
 DIJON_FILTER_EXPORT bool get_filter_types(std::set<std::string> &mime_types)
 {
 	mime_types.clear();
-	mime_types.insert("application/x-tar");
+	mime_types.insert("application/x-archive");
 	mime_types.insert("application/x-bzip-compressed-tar");
 	mime_types.insert("application/x-compressed-tar");
 	mime_types.insert("application/x-cd-image");
+	mime_types.insert("application/x-deb");
 	mime_types.insert("application/x-iso9660-image");
+	mime_types.insert("application/x-tar");
 	mime_types.insert("application/x-tarz");
 
 	return true;
@@ -156,10 +159,9 @@ bool ArchiveFilter::set_document_file(const string &file_path, bool unlink_when_
 {
 	if (Filter::set_document_file(file_path, unlink_when_done) == true)
 	{
-#ifndef O_NOATIME
 		int openFlags = O_RDONLY;
-#else
-		int openFlags = O_RDONLY|O_NOATIME;
+#ifdef O_CLOEXEC
+		openFlags |= O_CLOEXEC;
 #endif
 
 		initialize();
@@ -169,13 +171,17 @@ bool ArchiveFilter::set_document_file(const string &file_path, bool unlink_when_
 		}
 
 		// Open the archive 
+#ifdef O_NOATIME
+		m_fd = open(file_path.c_str(), openFlags|O_NOATIME);
+#else
 		m_fd = open(file_path.c_str(), openFlags);
+#endif
 #ifdef O_NOATIME
 		if ((m_fd < 0) &&
 			(errno == EPERM))
 		{
 			// Try again
-			m_fd = open(file_path.c_str(), O_RDONLY);
+			m_fd = open(file_path.c_str(), openFlags);
 		}
 #endif
 		if (m_fd < 0)
@@ -185,6 +191,10 @@ bool ArchiveFilter::set_document_file(const string &file_path, bool unlink_when_
 #endif
 			return false;
 		}
+#ifndef O_CLOEXEC
+		int fdFlags = fcntl(m_fd, F_GETFD);
+		fcntl(m_fd, F_SETFD, fdFlags|FD_CLOEXEC);
+#endif
 
 		if (archive_read_open_fd(m_pHandle, m_fd, ARCHIVE_DEFAULT_BYTES_PER_BLOCK) == ARCHIVE_OK)
 		{
@@ -225,10 +235,10 @@ void ArchiveFilter::initialize(void)
 	if (m_pHandle != NULL)
 	{
 		// Enable what we need for the given type
-		if (m_mimeType == "application/x-tar")
+		if ((m_mimeType == "application/x-archive") ||
+			(m_mimeType == "application/x-deb"))
 		{
-			archive_read_support_format_tar(m_pHandle);
-			archive_read_support_format_gnutar(m_pHandle);
+			archive_read_support_format_ar(m_pHandle);
 		}
 		else if (m_mimeType == "application/x-bzip-compressed-tar")
 		{
@@ -246,6 +256,11 @@ void ArchiveFilter::initialize(void)
 			(m_mimeType == "application/x-iso9660-image"))
 		{
 			archive_read_support_format_iso9660(m_pHandle);
+		}
+		else if (m_mimeType == "application/x-tar")
+		{
+			archive_read_support_format_tar(m_pHandle);
+			archive_read_support_format_gnutar(m_pHandle);
 		}
 		else if (m_mimeType == "application/x-tarz")
 		{
