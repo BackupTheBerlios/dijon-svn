@@ -474,7 +474,7 @@ void GMimeMboxFilter::finalize(bool fullReset)
 	}
 }
 
-bool GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, dstring &partBuffer)
+bool GMimeMboxFilter::extractPart(GMimeObject *part, string &subject, string &contentType, dstring &partBuffer)
 {
 	if (part == NULL)
 	{
@@ -519,7 +519,7 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, dstrin
 				continue;
 			}
 
-			bool gotPart = extractPart(multiMimePart, contentType, partBuffer);
+			bool gotPart = extractPart(multiMimePart, subject, contentType, partBuffer);
 #ifndef GMIME_ENABLE_RFC2047_WORKAROUNDS
 			g_mime_object_unref(multiMimePart);
 #endif
@@ -574,6 +574,14 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, dstrin
 #else
 	g_mime_part_set_encoding(mimePart, GMIME_PART_ENCODING_QUOTEDPRINTABLE);
 #endif
+	const char *fileName = g_mime_part_get_filename(mimePart);
+	if (fileName != NULL)
+	{
+#ifdef DEBUG
+		cout << "GMimeMboxFilter::extractPart: file name is " << fileName << endl;
+#endif
+		subject = fileName;
+	}
 
 	// Create a in-memory output stream
 	GMimeStream *memStream = g_mime_stream_mem_new();
@@ -639,7 +647,7 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, string &contentType, dstrin
 
 bool GMimeMboxFilter::extractMessage(const string &subject)
 {
-	string msgSubject(subject), contentType;
+	string msgSubject(subject);
 	char *pPart = NULL;
 	ssize_t partLength = 0;
 
@@ -762,16 +770,18 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 			GMimeObject *pMimePart = g_mime_message_get_mime_part(m_pMimeMessage);
 			if (pMimePart != NULL)
 			{
+				string partTitle(msgSubject), partContentType;
+
 				// Extract the part's text
 				m_content.clear();
-				if (extractPart(pMimePart, contentType, m_content) == true)
+				if (extractPart(pMimePart, partTitle, partContentType, m_content) == true)
 				{
 					char posStr[128];
 
 					// New document
 					m_metaData.clear();
-					m_metaData["title"] = msgSubject;
-					m_metaData["mimetype"] = contentType;
+					m_metaData["title"] = partTitle;
+					m_metaData["mimetype"] = partContentType;
 					m_metaData["date"] = m_messageDate;
 					m_metaData["charset"] = m_partCharset;
 					snprintf(posStr, 128, "%u", m_content.length());
