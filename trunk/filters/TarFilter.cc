@@ -212,7 +212,7 @@ bool TarFilter::next_document(const std::string &ipath)
 			}
 		}
 
-		m_metaData["mimetype"] = "SCAN";
+		m_metaData["mimetype"] = "SCANTITLE";
 
 		return readFile;
 	}

@@ -386,7 +386,7 @@ bool ArchiveFilter::next_document(const std::string &ipath)
 		}
 #endif
 
-		m_metaData["mimetype"] = "SCAN";
+		m_metaData["mimetype"] = "SCANTITLE";
 
 		return true;
 	}
