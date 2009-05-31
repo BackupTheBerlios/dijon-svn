@@ -258,11 +258,6 @@ This item is optional, and defaults to text/plain.
   <arguments>-qlp %s</arguments>
 </filter>
 <filter>
-  <mimetype>application/x-deb</mimetype>
-  <command>dpkg</command>
-  <arguments>-c %s</arguments>
-</filter>
-<filter>
   <mimetype>application/x-compress</mimetype>
   <command>uncompress</command>
   <arguments>-c %s</arguments>
