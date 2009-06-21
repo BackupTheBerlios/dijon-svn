@@ -470,11 +470,19 @@ void HtmlFilter::ParserState::opening_tag(const string &tag)
 		++m_skip;
 	}
 
+	// Replace tags with spaces
+	if (m_appendToTitle == true)
+	{
+		m_title += " ";
+	}
 	if (m_appendToText == true)
 	{
-		// Replace tags with spaces
 		m_text += " ";
 		m_textPos += 1;
+	}
+	if (m_appendToLink == true)
+	{
+		m_currentLink.m_name += " ";
 	}
 }
 
