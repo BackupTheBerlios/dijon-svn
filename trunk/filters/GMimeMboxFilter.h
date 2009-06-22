@@ -28,6 +28,12 @@
 
 #include "Filter.h"
 
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+#define GMIME_OFFSET_TYPE gint64 
+#else
+#define GMIME_OFFSET_TYPE off_t
+#endif
+
 namespace Dijon
 {
     class GMimeMboxFilter : public Filter
@@ -116,7 +122,7 @@ namespace Dijon
 	GMimeMessage *m_pMimeMessage;
 	int m_partsCount;
 	int m_partNum;
-	off_t m_messageStart;
+	GMIME_OFFSET_TYPE m_messageStart;
 	std::string m_messageDate;
 	std::string m_partCharset;
 	bool m_foundDocument;

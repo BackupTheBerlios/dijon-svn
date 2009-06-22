@@ -22,7 +22,6 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #ifdef HAVE_MMAP
 #include <sys/mman.h>
 #endif
@@ -39,6 +38,7 @@
 #include "GMimeMboxFilter.h"
 
 using std::cout;
+using std::cerr;
 using std::endl;
 using std::string;
 using std::map;
@@ -314,25 +314,19 @@ bool GMimeMboxFilter::initializeData(void)
 
 	if (m_messageStart > 0)
 	{
-		struct stat fileStat;
+		ssize_t streamLength = g_mime_stream_length(m_pGMimeMboxStream);
 
-		if ((fstat(m_fd, &fileStat) == 0) &&
-			(!S_ISREG(fileStat.st_mode)))
-		{
-			// This is not a file !
-			return false;
-		}
-
-		if (m_messageStart > fileStat.st_size)
+#ifdef DEBUG
+		cout << "GMimeMboxFilter::initializeData: from offset " << m_messageStart
+			<< " to " << streamLength << endl;
+#endif
+		if (m_messageStart > (GMIME_OFFSET_TYPE)streamLength)
 		{
 			// This offset doesn't make sense !
 			m_messageStart = 0;
 		}
 
-		g_mime_stream_set_bounds(m_pGMimeMboxStream, m_messageStart, fileStat.st_size);
-#ifdef DEBUG
-		cout << "GMimeMboxFilter::initializeData: stream starts at offset " << m_messageStart << endl;
-#endif
+		g_mime_stream_set_bounds(m_pGMimeMboxStream, m_messageStart, (GMIME_OFFSET_TYPE)streamLength);
 	}
 
 	return true;
@@ -374,25 +368,18 @@ bool GMimeMboxFilter::initializeFile(void)
 	// Create a stream
 	if (m_messageStart > 0)
 	{
-		struct stat fileStat;
+		ssize_t streamLength = g_mime_stream_length(m_pGMimeMboxStream);
 
-		if ((fstat(m_fd, &fileStat) == 0) &&
-			(!S_ISREG(fileStat.st_mode)))
-		{
-			// This is not a file !
-			return false;
-		}
-
-		if (m_messageStart > fileStat.st_size)
+		if (m_messageStart > (GMIME_OFFSET_TYPE)streamLength)
 		{
 			// This offset doesn't make sense !
 			m_messageStart = 0;
 		}
 
 #ifdef HAVE_MMAP
-		m_pGMimeMboxStream = g_mime_stream_mmap_new_with_bounds(m_fd, PROT_READ, MAP_PRIVATE, m_messageStart, fileStat.st_size);
+		m_pGMimeMboxStream = g_mime_stream_mmap_new_with_bounds(m_fd, PROT_READ, MAP_PRIVATE, m_messageStart, (GMIME_OFFSET_TYPE)streamLength);
 #else
-		m_pGMimeMboxStream = g_mime_stream_fs_new_with_bounds(m_fd, m_messageStart, fileStat.st_size);
+		m_pGMimeMboxStream = g_mime_stream_fs_new_with_bounds(m_fd, m_messageStart, (GMIME_OFFSET_TYPE)streamLength);
 #endif
 #ifdef DEBUG
 		cout << "GMimeMboxFilter::initializeFile: stream starts at offset " << m_messageStart << endl;
@@ -669,9 +656,18 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 
 			// Get the next message
 			m_pMimeMessage = g_mime_parser_construct_message(m_pParser);
+			if (m_pMimeMessage == NULL)
+			{
+				cerr << "Couldn't construct new MIME message" << endl;
+				break;
+			}
 
 			m_messageStart = g_mime_parser_get_from_offset(m_pParser);
+#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
+			gint64 messageEnd = g_mime_parser_tell(m_pParser);
+#else
 			off_t messageEnd = g_mime_parser_tell(m_pParser);
+#endif
 #ifdef DEBUG
 			cout << "GMimeMboxFilter::extractMessage: message between offsets " << m_messageStart
 				<< " and " << messageEnd << endl;
