@@ -140,6 +140,8 @@ namespace Dijon
 	bool extractPart(GMimeObject *mimeObject, std::string &subject,
 		std::string &contentType, dstring &part);
 
+	bool nextPart(const std::string &subject);
+
     private:
 	/// GMimeMboxFilter objects cannot be copied.
 	GMimeMboxFilter(const GMimeMboxFilter &other);
