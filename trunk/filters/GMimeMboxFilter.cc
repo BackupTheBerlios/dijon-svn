@@ -427,7 +427,10 @@ void GMimeMboxFilter::finalize(bool fullReset)
 	if (m_pMimeMessage != NULL)
 	{
 #ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
-		g_object_unref(m_pMimeMessage);
+		if (G_IS_OBJECT(m_pMimeMessage))
+		{
+			g_object_unref(m_pMimeMessage);
+		}
 #else
 		g_mime_object_unref(GMIME_OBJECT(m_pMimeMessage));
 #endif
@@ -436,12 +439,18 @@ void GMimeMboxFilter::finalize(bool fullReset)
 	if (m_pParser != NULL)
 	{
 		// FIXME: does the parser close the stream ?
-		g_object_unref(m_pParser);
+		if (G_IS_OBJECT(m_pParser))
+		{
+			g_object_unref(m_pParser);
+		}
 		m_pParser = NULL;
 	}
 	if (m_pGMimeMboxStream != NULL)
 	{
-		g_object_unref(m_pGMimeMboxStream);
+		if (G_IS_OBJECT(m_pGMimeMboxStream))
+		{
+			g_object_unref(m_pGMimeMboxStream);
+		}
 		m_pGMimeMboxStream = NULL;
 	}
 
@@ -505,7 +514,10 @@ bool GMimeMboxFilter::nextPart(const string &subject)
 		}
 
 #ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
-		g_object_unref(m_pMimeMessage);
+		if (G_IS_OBJECT(m_pMimeMessage))
+		{
+			g_object_unref(m_pMimeMessage);
+		}
 #else
 		g_mime_object_unref(GMIME_OBJECT(m_pMimeMessage));
 #endif
@@ -533,9 +545,7 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, string &subject, string &co
 #endif
 		GMimeMessage *partMessage = g_mime_message_part_get_message(GMIME_MESSAGE_PART(part));
 		part = g_mime_message_get_mime_part(partMessage);
-#ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
-		g_object_unref(partMessage);
-#else
+#ifndef GMIME_ENABLE_RFC2047_WORKAROUNDS
 		g_mime_object_unref(GMIME_OBJECT(partMessage));
 #endif
 	}
@@ -659,7 +669,10 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, string &subject, string &co
 #ifdef DEBUG
 		cout << "GMimeMboxFilter::extractPart: wrote " << writeLen << " bytes" << endl;
 #endif
-		g_object_unref(dataWrapper);
+		if (G_IS_OBJECT(dataWrapper))
+		{
+			g_object_unref(dataWrapper);
+		}
 	}
 	g_mime_stream_flush(memStream);
 	ssize_t partLen = g_mime_stream_length(memStream);
@@ -684,7 +697,10 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, string &subject, string &co
 	g_mime_stream_reset(memStream);
 	partBuffer.reserve(partLen);
 	read_stream(memStream, partBuffer);
-	g_object_unref(memStream);
+	if (G_IS_OBJECT(memStream))
+	{
+		g_object_unref(memStream);
+	}
 
 	return true;
 }
@@ -702,7 +718,10 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 			if (m_pMimeMessage != NULL)
 			{
 #ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
-				g_object_unref(m_pMimeMessage);
+				if (G_IS_OBJECT(m_pMimeMessage))
+				{
+					g_object_unref(m_pMimeMessage);
+				}
 #else
 				g_mime_object_unref(GMIME_OBJECT(m_pMimeMessage));
 #endif
