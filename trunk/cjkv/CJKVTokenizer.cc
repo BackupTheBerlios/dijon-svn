@@ -142,7 +142,7 @@ static inline unsigned char *_unicode_to_char(unicode_char_t &uchar,
 
 	memset(p, 0, sizeof(unicode_char_t) + 1);
 	if (unicode_isspace(uchar) ||
-		unicode_ispunct(uchar))
+		(unicode_ispunct(uchar) && (uchar != '.')))
 	{
 		p[0] = ' ';
 	}
@@ -238,11 +238,12 @@ unsigned int CJKVTokenizer::get_max_text_size(void) const
 	return m_maxTextSize;
 }
 
-void CJKVTokenizer::tokenize(const string &str, vector<string> &token_list)
+void CJKVTokenizer::tokenize(const string &str, vector<string> &token_list,
+	bool break_ascii_only_on_space)
 {
 	VectorTokensHandler handler(token_list);
 
-	tokenize(str, handler);
+	tokenize(str, handler, break_ascii_only_on_space);
 }
 
 void CJKVTokenizer::tokenize(const string &str, TokensHandler &handler,

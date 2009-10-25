@@ -67,7 +67,8 @@ namespace Dijon
 			unsigned int get_max_text_size(void) const;
 
 			void tokenize(const std::string &str,
-				std::vector<std::string> &token_list);
+				std::vector<std::string> &token_list,
+				bool break_ascii_only_on_space = false);
 
 			void tokenize(const std::string &str,
 				TokensHandler &handler,
