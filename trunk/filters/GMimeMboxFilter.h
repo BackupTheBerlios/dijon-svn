@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2009 Fabrice Colin
+ *  Copyright 2007-2010 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -127,6 +127,8 @@ namespace Dijon
 	std::string m_partCharset;
 	bool m_foundDocument;
 
+	static int openFile(const std::string &filePath);
+
 	bool initializeData(void);
 
 	bool initializeFile(void);
@@ -137,8 +139,23 @@ namespace Dijon
 
 	bool extractMessage(const std::string &subject);
 
-	bool extractPart(GMimeObject *mimeObject, std::string &subject,
-		std::string &contentType, dstring &part);
+	class GMimeMboxPart
+	{
+		public:
+			GMimeMboxPart(const std::string &subject,
+				dstring &buffer);
+			~GMimeMboxPart();
+
+			std::string m_subject;
+			std::string m_contentType;
+			dstring &m_buffer;
+
+		private:
+			GMimeMboxPart(const GMimeMboxPart &other);
+			GMimeMboxPart& operator=(const GMimeMboxPart& other);
+	};
+
+	bool extractPart(GMimeObject *mimeObject, GMimeMboxPart &mboxPart);
 
 	bool nextPart(const std::string &subject);
 

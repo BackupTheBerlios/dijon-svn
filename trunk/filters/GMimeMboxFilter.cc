@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2009 Fabrice Colin
+ *  Copyright 2007-2010 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -303,6 +303,43 @@ string GMimeMboxFilter::get_error(void) const
 	return "";
 }
 
+int GMimeMboxFilter::openFile(const string &filePath)
+{
+	int openFlags = O_RDONLY;
+
+#ifdef O_CLOEXEC
+	openFlags |= O_CLOEXEC;
+#endif
+
+	// Open the mbox file
+#ifdef O_NOATIME
+	int fd = open(filePath.c_str(), openFlags|O_NOATIME);
+#else
+	int fd = open(filePath.c_str(), openFlags);
+#endif
+#ifdef O_NOATIME
+	if ((fd < 0) &&
+		(errno == EPERM))
+	{
+		// Try again
+		fd = open(filePath.c_str(), openFlags);
+	}
+#endif
+	if (fd < 0)
+	{
+#ifdef DEBUG
+		cout << "GMimeMboxFilter::openFile: couldn't open " << filePath << endl;
+#endif
+		return false;
+	}
+#ifndef O_CLOEXEC
+	int fdFlags = fcntl(fd, F_GETFD);
+	fcntl(fd, F_SETFD, fdFlags|FD_CLOEXEC);
+#endif
+
+	return fd;
+}
+
 bool GMimeMboxFilter::initializeData(void)
 {
 	// Create a stream
@@ -334,36 +371,11 @@ bool GMimeMboxFilter::initializeData(void)
 
 bool GMimeMboxFilter::initializeFile(void)
 {
-	int openFlags = O_RDONLY;
-#ifdef O_CLOEXEC
-	openFlags |= O_CLOEXEC;
-#endif
-
-	// Open the mbox file
-#ifdef O_NOATIME
-	m_fd = open(m_filePath.c_str(), openFlags|O_NOATIME);
-#else
-	m_fd = open(m_filePath.c_str(), openFlags);
-#endif
-#ifdef O_NOATIME
-	if ((m_fd < 0) &&
-		(errno == EPERM))
-	{
-		// Try again
-		m_fd = open(m_filePath.c_str(), openFlags);
-	}
-#endif
+	m_fd = openFile(m_filePath);
 	if (m_fd < 0)
 	{
-#ifdef DEBUG
-		cout << "GMimeMboxFilter::initializeFile: couldn't open " << m_filePath << endl;
-#endif
 		return false;
 	}
-#ifndef O_CLOEXEC
-	int fdFlags = fcntl(m_fd, F_GETFD);
-	fcntl(m_fd, F_SETFD, fdFlags|FD_CLOEXEC);
-#endif
 
 	// Create a stream
 	if (m_messageStart > 0)
@@ -478,18 +490,18 @@ bool GMimeMboxFilter::nextPart(const string &subject)
 		GMimeObject *pMimePart = g_mime_message_get_mime_part(m_pMimeMessage);
 		if (pMimePart != NULL)
 		{
-			string partTitle(subject), partContentType;
+			GMimeMboxPart mboxPart(subject, m_content);
 
 			// Extract the part's text
 			m_content.clear();
-			if (extractPart(pMimePart, partTitle, partContentType, m_content) == true)
+			if (extractPart(pMimePart, mboxPart) == true)
 			{
 				char posStr[128];
 
 				// New document
 				m_metaData.clear();
-				m_metaData["title"] = partTitle;
-				m_metaData["mimetype"] = partContentType;
+				m_metaData["title"] = mboxPart.m_subject;
+				m_metaData["mimetype"] = mboxPart.m_contentType;
 				m_metaData["date"] = m_messageDate;
 				m_metaData["charset"] = m_partCharset;
 				snprintf(posStr, 128, "%u", m_content.length());
@@ -530,7 +542,18 @@ bool GMimeMboxFilter::nextPart(const string &subject)
 	return false;
 }
 
-bool GMimeMboxFilter::extractPart(GMimeObject *part, string &subject, string &contentType, dstring &partBuffer)
+GMimeMboxFilter::GMimeMboxPart::GMimeMboxPart(const string &subject,
+	dstring &buffer) :
+	m_subject(subject),
+	m_buffer(buffer)
+{
+}
+
+GMimeMboxFilter::GMimeMboxPart::~GMimeMboxPart()
+{
+}
+
+bool GMimeMboxFilter::extractPart(GMimeObject *part, GMimeMboxPart &mboxPart)
 {
 	if (part == NULL)
 	{
@@ -573,7 +596,7 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, string &subject, string &co
 				continue;
 			}
 
-			bool gotPart = extractPart(multiMimePart, subject, contentType, partBuffer);
+			bool gotPart = extractPart(multiMimePart, mboxPart);
 #ifndef GMIME_ENABLE_RFC2047_WORKAROUNDS
 			g_mime_object_unref(multiMimePart);
 #endif
@@ -611,8 +634,57 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, string &subject, string &co
 #ifdef DEBUG
 		cout << "GMimeMboxFilter::extractPart: type is " << partType << endl;
 #endif
-		contentType = partType;
+		mboxPart.m_contentType = partType;
+
+		// Is the body in a local file ?
+		if (mboxPart.m_contentType == "message/external-body")
+		{
+			const char *partAccessType = g_mime_content_type_get_parameter(mimeType, "access-type");
+			if (partAccessType != NULL)
+			{
+				string contentAccessType(partAccessType);
+
+#ifdef DEBUG
+				cout << "GMimeMboxFilter::extractPart: part access type is " << contentAccessType << endl;
+#endif
+				if (contentAccessType == "local-file")
+				{
+					const char *partLocalFile = g_mime_content_type_get_parameter(mimeType, "name");
+
+					if (partLocalFile != NULL)
+					{
+						mboxPart.m_contentType = "SCAN";
+						mboxPart.m_subject = partLocalFile;
+						mboxPart.m_buffer.clear();
+#ifdef DEBUG
+						cout << "GMimeMboxFilter::extractPart: local file at " << partLocalFile << endl;
+#endif
+
+						// Load the part from file
+						int fd = openFile(partLocalFile);
+						if (fd >= 0)
+						{
+							GMimeStream *fileStream = g_mime_stream_mmap_new(fd, PROT_READ, MAP_PRIVATE);
+							if (fileStream != NULL)
+							{
+								read_stream(fileStream, mboxPart.m_buffer);
+								if (G_IS_OBJECT(fileStream))
+								{
+									g_object_unref(fileStream);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 		g_free(partType);
+	}
+
+	// Was the part already loaded ?
+	if (mboxPart.m_buffer.empty() == false)
+	{
+		return true;
 	}
 
 #ifdef GMIME_ENABLE_RFC2047_WORKAROUNDS
@@ -634,11 +706,15 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, string &subject, string &co
 #ifdef DEBUG
 		cout << "GMimeMboxFilter::extractPart: file name is " << fileName << endl;
 #endif
-		subject = fileName;
+		mboxPart.m_subject = fileName;
 	}
 
 	// Create a in-memory output stream
 	GMimeStream *memStream = g_mime_stream_mem_new();
+	if (memStream == NULL)
+	{
+		return false;
+	}
 
 	const char *charset = g_mime_content_type_get_parameter(mimeType, "charset");
 	if (charset != NULL)
@@ -681,22 +757,22 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, string &subject, string &co
 #endif
 
 	if ((m_returnHeaders == true) &&
-		(contentType.length() >= 10) &&
-		(strncasecmp(contentType.c_str(), "text/plain", 10) == 0))
+		(mboxPart.m_contentType.length() >= 10) &&
+		(strncasecmp(mboxPart.m_contentType.c_str(), "text/plain", 10) == 0))
 	{
 		char *pHeaders = g_mime_object_get_headers(GMIME_OBJECT(m_pMimeMessage));
 
 		if (pHeaders != NULL)
 		{
-			partBuffer = pHeaders;
-			partBuffer += "\n";
+			mboxPart.m_buffer = pHeaders;
+			mboxPart.m_buffer += "\n";
 			free(pHeaders);
 		}
 	}
 
 	g_mime_stream_reset(memStream);
-	partBuffer.reserve(partLen);
-	read_stream(memStream, partBuffer);
+	mboxPart.m_buffer.reserve(partLen);
+	read_stream(memStream, mboxPart.m_buffer);
 	if (G_IS_OBJECT(memStream))
 	{
 		g_object_unref(memStream);
