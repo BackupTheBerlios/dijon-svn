@@ -676,6 +676,13 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, GMimeMboxPart &mboxPart)
 						}
 					}
 				}
+				else
+				{
+					mboxPart.m_contentType = "application/octet-stream";
+#ifdef DEBUG
+					cout << "GMimeMboxFilter::extractPart: unknown part access type" << endl;
+#endif
+				}
 			}
 		}
 		g_free(partType);
@@ -910,7 +917,11 @@ bool GMimeMboxFilter::extractMessage(const string &subject)
 		cout << "GMimeMboxFilter::extractMessage: message subject is " << msgSubject << endl;
 #endif
 
-		return nextPart(msgSubject);
+		if (nextPart(msgSubject) == true)
+		{
+			return true;
+		}
+		// Try the next message
 	}
 
 	// The last message may have parts left
