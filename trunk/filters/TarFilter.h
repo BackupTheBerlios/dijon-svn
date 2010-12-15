@@ -1,5 +1,5 @@
 /*
- *  Copyright 2009 Fabrice Colin
+ *  Copyright 2009-2010 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -102,6 +102,7 @@ namespace Dijon
 	virtual std::string get_error(void) const;
 
     protected:
+	size_t m_maxSize;
 	bool m_parseDocument;
 	TAR *m_pHandle;
 

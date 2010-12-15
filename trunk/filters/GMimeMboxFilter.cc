@@ -94,44 +94,21 @@ DIJON_FILTER_SHUTDOWN void shutdown_gmime(void)
 }
 #endif
 
-static bool read_stream(GMimeStream *memStream, dstring &fileBuffer)
+GMimeMboxFilter::GMimeMboxPart::GMimeMboxPart(const string &subject,
+	dstring &buffer) :
+	m_subject(subject),
+	m_buffer(buffer)
 {
-	char readBuffer[4096];
-	ssize_t totalSize = 0, bytesRead = 0;
-	bool gotOutput = true;
+}
 
-	do
-	{
-		bytesRead = g_mime_stream_read(memStream, readBuffer, 4096);
-		if (bytesRead > 0)
-		{
-			fileBuffer.append(readBuffer, bytesRead);
-			totalSize += bytesRead;
-		}
-		else if (bytesRead == -1)
-		{
-			// An error occured
-			if (errno != EINTR)
-			{
-				gotOutput = false;
-				break;
-			}
-
-			// Try again
-			bytesRead = 1;
-		}
-	} while (bytesRead > 0);
-#ifdef DEBUG
-	cout << "GMimeMboxFilter::extractPart: read " << totalSize
-		<< "/" << fileBuffer.size() << " bytes" << endl;
-#endif
-
-	return gotOutput;
+GMimeMboxFilter::GMimeMboxPart::~GMimeMboxPart()
+{
 }
 
 GMimeMboxFilter::GMimeMboxFilter(const string &mime_type) :
 	Filter(mime_type),
 	m_returnHeaders(false),
+	m_maxSize(0),
 	m_pData(NULL),
 	m_dataLength(0),
 	m_fd(-1),
@@ -181,6 +158,11 @@ bool GMimeMboxFilter::set_property(Properties prop_name, const string &prop_valu
 		}
 
 		return true;
+	}
+	else if ((prop_name == MAXIMUM_NESTED_SIZE) &&
+		(prop_value.empty() == false))
+	{
+		m_maxSize = (off_t)atoll(prop_value.c_str());
 	}
 
 	return false;
@@ -482,6 +464,57 @@ void GMimeMboxFilter::finalize(bool fullReset)
 	}
 }
 
+bool GMimeMboxFilter::readStream(GMimeStream *pStream, dstring &fileBuffer)
+{
+	char readBuffer[4096];
+	ssize_t streamLen = g_mime_stream_length(pStream);
+	ssize_t totalSize = 0, bytesRead = 0;
+	bool gotOutput = true;
+
+#ifdef DEBUG
+	cout << "GMimeMboxFilter::readStream: stream is " << streamLen
+		<< " bytes long" << endl;
+#endif
+
+	do
+	{
+		if ((m_maxSize > 0) &&
+			(totalSize >= m_maxSize))
+		{
+#ifdef DEBUG
+			cout << "GMimeMboxFilter::readStream: stopping at "
+				<< totalSize << endl;
+#endif
+			break;
+		}
+
+		bytesRead = g_mime_stream_read(pStream, readBuffer, 4096);
+		if (bytesRead > 0)
+		{
+			fileBuffer.append(readBuffer, bytesRead);
+			totalSize += bytesRead;
+		}
+		else if (bytesRead == -1)
+		{
+			// An error occured
+			if (errno != EINTR)
+			{
+				gotOutput = false;
+				break;
+			}
+
+			// Try again
+			bytesRead = 1;
+		}
+	} while (bytesRead > 0);
+#ifdef DEBUG
+	cout << "GMimeMboxFilter::readStream: read " << totalSize
+		<< "/" << fileBuffer.size() << " bytes" << endl;
+#endif
+
+	return gotOutput;
+}
+
 bool GMimeMboxFilter::nextPart(const string &subject)
 {
 	if (m_pMimeMessage != NULL)
@@ -510,7 +543,7 @@ bool GMimeMboxFilter::nextPart(const string &subject)
 				snprintf(posStr, 128, "o=%u&p=%d", m_messageStart, max(m_partNum - 1, 0));
 				m_metaData["ipath"] = posStr;
 #ifdef DEBUG
-				cout << "GMimeMboxFilter::extractMessage: message location is " << posStr << endl; 
+				cout << "GMimeMboxFilter::nextPart: message location is " << posStr << endl; 
 #endif
 
 #ifndef GMIME_ENABLE_RFC2047_WORKAROUNDS
@@ -540,17 +573,6 @@ bool GMimeMboxFilter::nextPart(const string &subject)
 	m_partsCount = m_partNum = -1;
 
 	return false;
-}
-
-GMimeMboxFilter::GMimeMboxPart::GMimeMboxPart(const string &subject,
-	dstring &buffer) :
-	m_subject(subject),
-	m_buffer(buffer)
-{
-}
-
-GMimeMboxFilter::GMimeMboxPart::~GMimeMboxPart()
-{
 }
 
 bool GMimeMboxFilter::extractPart(GMimeObject *part, GMimeMboxPart &mboxPart)
@@ -667,7 +689,7 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, GMimeMboxPart &mboxPart)
 							GMimeStream *fileStream = g_mime_stream_mmap_new(fd, PROT_READ, MAP_PRIVATE);
 							if (fileStream != NULL)
 							{
-								read_stream(fileStream, mboxPart.m_buffer);
+								readStream(fileStream, mboxPart.m_buffer);
 								if (G_IS_OBJECT(fileStream))
 								{
 									g_object_unref(fileStream);
@@ -758,10 +780,6 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, GMimeMboxPart &mboxPart)
 		}
 	}
 	g_mime_stream_flush(memStream);
-	ssize_t partLen = g_mime_stream_length(memStream);
-#ifdef DEBUG
-	cout << "GMimeMboxFilter::extractPart: part is " << partLen << " bytes long" << endl;
-#endif
 
 	if ((m_returnHeaders == true) &&
 		(mboxPart.m_contentType.length() >= 10) &&
@@ -778,8 +796,7 @@ bool GMimeMboxFilter::extractPart(GMimeObject *part, GMimeMboxPart &mboxPart)
 	}
 
 	g_mime_stream_reset(memStream);
-	mboxPart.m_buffer.reserve(partLen);
-	read_stream(memStream, mboxPart.m_buffer);
+	readStream(memStream, mboxPart.m_buffer);
 	if (G_IS_OBJECT(memStream))
 	{
 		g_object_unref(memStream);

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2009 Fabrice Colin
+ *  Copyright 2009-2010 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <iostream>
 #include <sstream>
@@ -62,6 +63,7 @@ DIJON_FILTER_EXPORT Filter *get_filter(const std::string &mime_type)
 
 TarFilter::TarFilter(const string &mime_type) :
 	Filter(mime_type),
+	m_maxSize(0),
 	m_parseDocument(false),
 	m_pHandle(NULL)
 {
@@ -84,6 +86,12 @@ bool TarFilter::is_data_input_ok(DataInput input) const
 
 bool TarFilter::set_property(Properties prop_name, const string &prop_value)
 {
+	if ((prop_name == MAXIMUM_NESTED_SIZE) &&
+		(prop_value.empty() == false))
+	{
+		m_maxSize = (size_t)atol(prop_value.c_str());
+	}
+
 	return false;
 }
 
@@ -187,34 +195,51 @@ bool TarFilter::next_document(const std::string &ipath)
 	else if (TH_ISREG(m_pHandle))
 	{
 		char pBuffer[T_BLOCKSIZE];
+		size_t readSize = 0, totalSize = 0;
 		size_t blockNum = size;
 		bool readFile = true;
 
-		m_content.reserve(size);
+		m_metaData["mimetype"] = "SCANTITLE";
+
 		while (blockNum > 0)
 		{
-			int readSize = tar_block_read(m_pHandle, pBuffer);
+			readSize = tar_block_read(m_pHandle, pBuffer);
 			if (readSize != T_BLOCKSIZE)
 			{
+				return false;
+			}
+			totalSize += readSize;
+
+			if ((readFile == true) &&
+				(m_maxSize > 0) &&
+				(totalSize > m_maxSize))
+			{
+#ifdef DEBUG
+				cout << "TarFilter::next_document: stopping at " << totalSize << endl;
+#endif
 				readFile = false;
-				break;
 			}
 
 			if (blockNum > T_BLOCKSIZE)
 			{
-				m_content.append(pBuffer, T_BLOCKSIZE);
+				if (readFile == true)
+				{
+					m_content.append(pBuffer, T_BLOCKSIZE);
+				}
 				blockNum -= T_BLOCKSIZE;
 			}
 			else
 			{
-				m_content.append(pBuffer, blockNum);
+				if (readFile == true)
+				{
+					m_content.append(pBuffer, blockNum);
+				}
 				blockNum = 0;
 			}
 		}
 
-		m_metaData["mimetype"] = "SCANTITLE";
 
-		return readFile;
+		return true;
 	}
 
 	return true;

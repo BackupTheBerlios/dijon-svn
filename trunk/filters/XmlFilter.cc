@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2009 Fabrice Colin
+ *  Copyright 2007-2010 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,10 +17,13 @@
  */
 
 #include <unistd.h>
+#include <iostream>
 
 #include "XmlFilter.h"
 
 using std::string;
+using std::cout;
+using std::endl;
 
 using namespace Dijon;
 
@@ -62,6 +65,9 @@ static dstring replaceEntities(const string &str)
 	dstring unescapedStr;
 	dstring::size_type startPos = 0;
 
+#ifdef DEBUG
+	cout << "replaceEntities: " << str.length() << " bytes of text" << endl;
+#endif
 	unescapedStr.reserve(str.length());
 
 	string::size_type pos = str.find("&");

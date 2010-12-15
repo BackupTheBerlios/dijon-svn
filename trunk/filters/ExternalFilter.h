@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007,2008 Fabrice Colin
+ *  Copyright 2007-2010 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -103,11 +103,12 @@ namespace Dijon
 	static std::map<std::string, std::string> m_commandsByType;
 	static std::map<std::string, std::string> m_outputsByType;
 	static std::map<std::string, std::string> m_charsetsByType;
+	off_t m_maxSize;
 	bool m_doneWithDocument;
 
 	virtual void rewind(void);
 
-	bool run_command(const std::string &command, bool limit_output);
+	bool run_command(const std::string &command, ssize_t maxSize);
 
     private:
 	/// ExternalFilter objects cannot be copied.

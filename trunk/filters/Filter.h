@@ -87,8 +87,9 @@ namespace Dijon
 	 * - PREFERRED_CHARSET is the charset preferred by the client application.
 	 * The filter will convert document's content to this charset if possible.
 	 * - OPERATING_MODE can be set to either view or index.
+	 * - MAXIMUM_NESTED_SIZE is the maximum size in bytes of nested documents.
 	 */
-	typedef enum { PREFERRED_CHARSET = 0, OPERATING_MODE } Properties;
+	typedef enum { PREFERRED_CHARSET = 0, OPERATING_MODE, MAXIMUM_NESTED_SIZE } Properties;
 
 
 	// Information.

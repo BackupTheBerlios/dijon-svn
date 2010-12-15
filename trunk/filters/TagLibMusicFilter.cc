@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2009 Fabrice Colin
+ *  Copyright 2007-2010 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,10 +21,14 @@
 #include <fileref.h>
 #include <tfile.h>
 #include <tag.h>
+#include <iostream>
 
 #include "TagLibMusicFilter.h"
 
 using std::string;
+using std::cout;
+using std::endl;
+
 using namespace Dijon;
 
 #ifdef _DYNAMIC_DIJON_FILTERS
@@ -139,6 +143,9 @@ bool TagLibMusicFilter::next_document(void)
 				trackTitle += " ";
 				trackTitle += pTag->artist().toCString(true);
 
+#ifdef DEBUG
+				cout << "TagLibMusicFilter::next_document: " << trackTitle.length() << " bytes of text" << endl;
+#endif
 				m_content.append(trackTitle.c_str(), trackTitle.length());
 				m_content += " ";
 				m_content += pTag->album().toCString(true);

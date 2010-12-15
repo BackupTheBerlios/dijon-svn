@@ -45,8 +45,6 @@
 
 #include "ExternalFilter.h"
 
-#define MAX_OUTPUT_SIZE 5242880
-
 using std::cout;
 using std::endl;
 using std::min;
@@ -119,24 +117,23 @@ static string shell_protect(const string &file_name)
 	return safefile;
 }
 
-static bool read_file(int fd, bool limit_output, ssize_t &totalSize, dstring &fileBuffer)
+static bool read_file(int fd, ssize_t maxSize, ssize_t &totalSize, dstring &fileBuffer)
 {
 	struct stat fdStats;
 	ssize_t bytesRead = 0;
 	bool gotOutput = true;
 
+#ifdef DEBUG
 	if (fstat(fd, &fdStats) == 0)
 	{
-		if (fdStats.st_size > 0)
-		{
-			fileBuffer.reserve(fdStats.st_size);
-		}
+		cout << "ExternalFilter::read_file: file size " << fdStats.st_size << endl;
 	}
+#endif
 
 	do
 	{
-		if ((limit_output == true) && 
-			(totalSize >= MAX_OUTPUT_SIZE))
+		if ((maxSize > 0) &&
+			(totalSize >= maxSize))
 		{
 #ifdef DEBUG
 			cout << "ExternalFilter::read_file: stopping at " << totalSize << endl;
@@ -174,6 +171,7 @@ map<string, string> ExternalFilter::m_charsetsByType;
 
 ExternalFilter::ExternalFilter(const string &mime_type) :
 	Filter(mime_type),
+	m_maxSize(0),
 	m_doneWithDocument(false)
 {
 }
@@ -195,6 +193,12 @@ bool ExternalFilter::is_data_input_ok(DataInput input) const
 
 bool ExternalFilter::set_property(Properties prop_name, const string &prop_value)
 {
+	if ((prop_name == MAXIMUM_NESTED_SIZE) &&
+		(prop_value.empty() == false))
+	{
+		m_maxSize = (off_t)atoll(prop_value.c_str());
+	}
+
 	return true;
 }
 
@@ -232,7 +236,7 @@ bool ExternalFilter::next_document(void)
 		(m_commandsByType.empty() == false))
 	{
 		string outputType("text/plain");
-		bool limitOutput = true;
+		ssize_t maxSize = 0;
 
 		m_doneWithDocument = true;
 
@@ -253,10 +257,10 @@ bool ExternalFilter::next_document(void)
 
 		if (outputType != "text/plain")
 		{
-			limitOutput = false;
+			maxSize = m_maxSize;
 		}
 
-		if (run_command(commandIter->second, limitOutput) == true)
+		if (run_command(commandIter->second, maxSize) == true)
 		{
 			// Fill in general details
 			m_metaData["uri"] = "file://" + m_filePath;
@@ -406,7 +410,7 @@ void ExternalFilter::rewind(void)
 }
 
 // This function is heavily inspired by Xapian Omega's stdout_to_string()
-bool ExternalFilter::run_command(const string &command, bool limit_output)
+bool ExternalFilter::run_command(const string &command, ssize_t maxSize)
 {
 	string commandLine(command);
 	bool replacedParam = false, gotOutput = false;
@@ -464,7 +468,7 @@ bool ExternalFilter::run_command(const string &command, bool limit_output)
 	}
 
 	ssize_t totalSize = 0;
-	gotOutput = read_file(outFd, limit_output, totalSize, m_content);
+	gotOutput = read_file(outFd, maxSize, totalSize, m_content);
 
 	// Close and delete the temporary file
 	close(outFd);
@@ -521,7 +525,7 @@ bool ExternalFilter::run_command(const string &command, bool limit_output)
 	}
 
 	ssize_t totalSize = 0;
-	gotOutput = read_file(fds[0], limit_output, totalSize, m_content);
+	gotOutput = read_file(fds[0], maxSize, totalSize, m_content);
 
 	// Close our side of the socket pair
 	close(fds[0]);

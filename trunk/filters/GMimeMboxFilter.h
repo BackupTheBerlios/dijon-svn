@@ -114,6 +114,7 @@ namespace Dijon
     protected:
 	std::string m_defaultCharset;
 	bool m_returnHeaders;
+	off_t m_maxSize;
 	const char *m_pData;
 	unsigned int m_dataLength;
 	int m_fd;
@@ -126,18 +127,6 @@ namespace Dijon
 	std::string m_messageDate;
 	std::string m_partCharset;
 	bool m_foundDocument;
-
-	static int openFile(const std::string &filePath);
-
-	bool initializeData(void);
-
-	bool initializeFile(void);
-
-	bool initialize(void);
-
-	void finalize(bool fullReset);
-
-	bool extractMessage(const std::string &subject);
 
 	class GMimeMboxPart
 	{
@@ -155,9 +144,23 @@ namespace Dijon
 			GMimeMboxPart& operator=(const GMimeMboxPart& other);
 	};
 
-	bool extractPart(GMimeObject *mimeObject, GMimeMboxPart &mboxPart);
+	static int openFile(const std::string &filePath);
+
+	bool initializeData(void);
+
+	bool initializeFile(void);
+
+	bool initialize(void);
+
+	void finalize(bool fullReset);
+
+	bool readStream(GMimeStream *pStream, dstring &fileBuffer);
 
 	bool nextPart(const std::string &subject);
+
+	bool extractPart(GMimeObject *mimeObject, GMimeMboxPart &mboxPart);
+
+	bool extractMessage(const std::string &subject);
 
     private:
 	/// GMimeMboxFilter objects cannot be copied.

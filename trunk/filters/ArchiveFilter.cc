@@ -1,5 +1,5 @@
 /*
- *  Copyright 2009 Fabrice Colin
+ *  Copyright 2009-2010 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -74,6 +75,7 @@ DIJON_FILTER_EXPORT Filter *get_filter(const std::string &mime_type)
 
 ArchiveFilter::ArchiveFilter(const string &mime_type) :
 	Filter(mime_type),
+	m_maxSize(0),
 	m_parseDocument(false),
 	m_isBig(false),
 	m_pMem(NULL),
@@ -109,6 +111,12 @@ bool ArchiveFilter::is_data_input_ok(DataInput input) const
 
 bool ArchiveFilter::set_property(Properties prop_name, const string &prop_value)
 {
+	if ((prop_name == MAXIMUM_NESTED_SIZE) &&
+		(prop_value.empty() == false))
+	{
+		m_maxSize = (off_t)atoll(prop_value.c_str());
+	}
+
 	return false;
 }
 
@@ -346,47 +354,36 @@ bool ArchiveFilter::next_document(const std::string &ipath)
 	}
 	else if (S_ISREG(pEntryStats->st_mode))
 	{
-		m_content.reserve(size);
-
-#if 1
 		const void *pBuffer = NULL;
 		size_t readSize = 0, totalSize = 0;
 		off_t offset = 0;
+		bool readFile = true;
+
+		m_metaData["mimetype"] = "SCANTITLE";
 
 		while (archive_read_data_block(m_pHandle,
 			&pBuffer, &readSize, &offset) == ARCHIVE_OK)
 		{
 			totalSize += readSize;
+
+			if ((readFile == true) &&
+				(m_maxSize > 0) &&
+				(totalSize > m_maxSize))
+			{
 #ifdef DEBUG
-			cout << "ArchiveFilter::next_document: read " << readSize << " bytes" << endl;
+				cout << "ArchiveFilter::next_document: stopping at " << totalSize << endl;
 #endif
-			m_content.append(static_cast<const char*>(pBuffer), readSize);
+				readFile = false;
+			}
+			if (readFile == true)
+			{
+				m_content.append(static_cast<const char*>(pBuffer), readSize);
+			}
 		}
 #ifdef DEBUG
 		cout << "ArchiveFilter::next_document: read " << totalSize
 			<< "/" << m_content.size() << " bytes" << endl;
 #endif
-#else
-		char *pBuffer = (char *)malloc(sizeof(char) * (size + 1));
-
-		if (pBuffer != NULL)
-		{
-			if (archive_read_data_into_buffer(m_pHandle, (void*)pBuffer, size) == ARCHIVE_OK)
-			{
-				m_content.append(pBuffer, size);
-			}
-#ifdef DEBUG
-			else
-			{
-				cout << "ArchiveFilter::next_document: failed to read " << size << " bytes" << endl;
-			}
-#endif
-
-			free(pBuffer);
-		}
-#endif
-
-		m_metaData["mimetype"] = "SCANTITLE";
 
 		return true;
 	}
