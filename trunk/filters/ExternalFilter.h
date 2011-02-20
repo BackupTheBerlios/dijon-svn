@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2010 Fabrice Colin
+ *  Copyright 2007-2011 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,11 +23,11 @@
 #include <set>
 #include <map>
 
-#include  "Filter.h"
+#include  "FileOutputFilter.h"
 
 namespace Dijon
 {
-    class ExternalFilter : public Filter
+    class ExternalFilter : public FileOutputFilter
     {
     public:
 	/// Builds an empty filter.

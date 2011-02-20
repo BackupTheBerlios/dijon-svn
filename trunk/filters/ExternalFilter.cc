@@ -1,5 +1,5 @@
 /*
- *  Copyright 2007-2009 Fabrice Colin
+ *  Copyright 2007-2011 Fabrice Colin
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,6 @@
 #ifdef HAVE_SOCKETPAIR
 #ifdef HAVE_FORK
 #ifdef HAVE_SETRLIMIT
-#include <errno.h>
 #include <signal.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -117,60 +116,12 @@ static string shell_protect(const string &file_name)
 	return safefile;
 }
 
-static bool read_file(int fd, ssize_t maxSize, ssize_t &totalSize, dstring &fileBuffer)
-{
-	struct stat fdStats;
-	ssize_t bytesRead = 0;
-	bool gotOutput = true;
-
-#ifdef DEBUG
-	if (fstat(fd, &fdStats) == 0)
-	{
-		cout << "ExternalFilter::read_file: file size " << fdStats.st_size << endl;
-	}
-#endif
-
-	do
-	{
-		if ((maxSize > 0) &&
-			(totalSize >= maxSize))
-		{
-#ifdef DEBUG
-			cout << "ExternalFilter::read_file: stopping at " << totalSize << endl;
-#endif
-			break;
-		}
-
-		char readBuffer[4096];
-		bytesRead = read(fd, readBuffer, 4096);
-		if (bytesRead > 0)
-		{
-			fileBuffer.append(readBuffer, bytesRead);
-			totalSize += bytesRead;
-		}
-		else if (bytesRead == -1)
-		{
-			// An error occured
-			if (errno != EINTR)
-			{
-				gotOutput = false;
-				break;
-			}
-
-			// Try again
-			bytesRead = 1;
-		}
-	} while (bytesRead > 0);
-
-	return gotOutput;
-}
-
 map<string, string> ExternalFilter::m_commandsByType;
 map<string, string> ExternalFilter::m_outputsByType;
 map<string, string> ExternalFilter::m_charsetsByType;
 
 ExternalFilter::ExternalFilter(const string &mime_type) :
-	Filter(mime_type),
+	FileOutputFilter(mime_type),
 	m_maxSize(0),
 	m_doneWithDocument(false)
 {
@@ -468,7 +419,7 @@ bool ExternalFilter::run_command(const string &command, ssize_t maxSize)
 	}
 
 	ssize_t totalSize = 0;
-	gotOutput = read_file(outFd, maxSize, totalSize, m_content);
+	gotOutput = read_file(outFd, maxSize, totalSize);
 
 	// Close and delete the temporary file
 	close(outFd);
@@ -525,7 +476,7 @@ bool ExternalFilter::run_command(const string &command, ssize_t maxSize)
 	}
 
 	ssize_t totalSize = 0;
-	gotOutput = read_file(fds[0], maxSize, totalSize, m_content);
+	gotOutput = read_file(fds[0], maxSize, totalSize);
 
 	// Close our side of the socket pair
 	close(fds[0]);
